@@ -1,0 +1,61 @@
+@charset "utf-8";
+
+/*スタイルのクリア*/
+body, div, dl, dt, dd, ul, ol, li, h1, h2, h3, h4 ,h5 ,h6, pre, form,
+fieldset, input, textarea, p, blockquote, th, td {
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    overflow-y: scroll;
+}
+
+body {
+    /* background-color: dimgray; */
+    background-color: #313131;
+}
+
+
+/* 各キャンバスの親 */
+.margin-center {
+    position : relative;   /* 子のabsoluteの起点になる */
+    width    : 320px;
+    margin   : 0 auto;
+}
+
+/* 各キャンバスの座標を合わせる */
+#g_canvas3 {
+    position : absolute;
+    top      : 0px;
+    left     : 0px;
+    z-index  : 3;
+}
+
+#g_canvas2 {
+    position : absolute;
+    top      : 0px;
+    left     : 0px;
+    z-index  : 2;
+}
+
+#g_canvas1 {
+    position : absolute;
+    top      : 0px;
+    left     : 0px;
+    z-index  : 1;
+}
+
+    
+/* フォント読み込み */
+@font-face {
+   font-family: "mainfont";
+   src: url("../PixelMplus10-Regular.ttf") format("truetype"),
+   url("../mainfont_gothic.woff") format('woff');
+}
+
+#gameFont {
+    font-family:"mainfont";
+    font-size: 5px;
+}
+

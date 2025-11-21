@@ -16,7 +16,7 @@
     // and npm install -D @types/node
 
     // Other Outputs
-    "sourceMap": true,
+    "sourceMap": true,    // デバッグ連携用ファイルを生成
     "declaration": true,
     "declarationMap": true,
 
@@ -31,6 +31,9 @@
     // "noUnusedParameters": true,
     // "noFallthroughCasesInSwitch": true,
     // "noPropertyAccessFromIndexSignature": true,
+
+    // コメント削除
+    "removeComments" : true,
 
     // Recommended Options
     "strict": true,
