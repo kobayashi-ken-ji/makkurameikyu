@@ -9,9 +9,7 @@
 // インポート
 //=============================================================================
 
-import {
-    CELL_PX, CHARA_PX, SCREEN_CENTER_X, SCREEN_CENTER_Y, WALK_PATTERN, DIRECTION,
-} from './constants.js';
+import {CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, DIRECTION} from './constants.js';
 
 //=============================================================================
 // アイテム情報
@@ -51,8 +49,8 @@ class Walker
     direction: DIRECTION;
 
     // 画像シート, 画像チップの幅、歩行パターンインデックス
-    private image: HTMLImageElement;
-    private chipSize: number;
+    private readonly image    : HTMLImageElement;
+    private readonly chipSize : number;
     private i: 0|1|2|3;
 
     constructor(image: HTMLImageElement, chipSize: number, x: number, y: number) {
@@ -128,16 +126,16 @@ class Walker
 export class MainChara extends Walker
 {
     // キャラステータス
-    hpMax: number;
-    hp   : number;
+    hpMax : number;
+    hp    : number;
     walkCount = 0;    // 歩数
     safeCount = 0;    // 敵を防いだ回数
 
     // 画面上のキャラ描画座標 (px)
     // 主人公のみ、画像サイズが異なる
     private readonly diff    = CHARA_PX - CELL_PX;
-    private readonly screenX = SCREEN_CENTER_X * CELL_PX  - (this.diff / 2);
-    private readonly screenY = SCREEN_CENTER_Y * CELL_PX  - this.diff;
+    private readonly screenX = CANVAS.CHARA_X  - (this.diff / 2);
+    private readonly screenY = CANVAS.CHARA_Y  - this.diff;
 
 
     /**
@@ -178,7 +176,7 @@ export enum ENEMY_RESULT {
 
 export class Enemy extends Walker
 {
-    design;
+    readonly design;
     result: ENEMY_RESULT;
 
     constructor(design: EnemyDesign, x: number, y: number) {
@@ -204,12 +202,12 @@ export class EnemyDesign
      * @param damageText    ダメージ時のテキスト
      */
     constructor(
-        public chase       : boolean,
-        public safeItem    : Item,
-        public image       : HTMLImageElement,
-        public encountText : string,
-        public safeText    : string,
-        public damageText  : string
+        public readonly chase       : boolean,
+        public readonly safeItem    : Item,
+        public readonly image       : HTMLImageElement,
+        public readonly encountText : string,
+        public readonly safeText    : string,
+        public readonly damageText  : string
     ) {}
 
     
@@ -219,7 +217,7 @@ export class EnemyDesign
      * @param y 初期座標Y
      * @returns 敵の実体インスタンス
      */
-    generate(x: number, y: number) {
+    generate(x: number, y: number): Enemy {
         return new Enemy(this, x, y);
     }
 }

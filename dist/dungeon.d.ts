@@ -1,5 +1,5 @@
-import { DIRECTION, type Stairs } from './constants.js';
-import { Rect, BGM, Point, Input } from './utility.js';
+import { DIRECTION, type Stairs, type Contexts, type Se } from './constants.js';
+import { Rect, Bgm, Point, Input } from './utility.js';
 import { Item, MainChara, EnemyDesign, Enemy } from './character.js';
 declare enum EVENT {
     NONE = 1,
@@ -8,62 +8,42 @@ declare enum EVENT {
     BOX = 4,
     ENEMY = 9
 }
-export type Contexts = {
-    ui: CanvasRenderingContext2D;
-    dark: CanvasRenderingContext2D;
-    bg: CanvasRenderingContext2D;
-    preRender: CanvasRenderingContext2D;
-};
-export type Se = {
-    complete1: HTMLAudioElement;
-    complete2: HTMLAudioElement;
-    stairs: HTMLAudioElement;
-    openBox: HTMLAudioElement;
-    useItem: HTMLAudioElement;
-    crash: HTMLAudioElement;
-    select: HTMLAudioElement;
-    wall: HTMLAudioElement;
-    gameover: HTMLAudioElement;
-    encount: HTMLAudioElement;
-};
 export declare class Cell {
     event: EVENT;
     param: number;
     chipX: number;
     chipY: number;
     visible: boolean;
-    constructor(excelData: number);
+    constructor(excelData: Readonly<number>);
     getEnemyNum(): number;
     openBox(): number;
 }
 export declare class Floor {
+    readonly image: HTMLImageElement;
+    readonly bgm: Bgm;
     cells: Cell[][];
-    image: HTMLImageElement;
-    bgm: BGM;
-    constructor(mapExcelData: number[][], image: HTMLImageElement, bgm: BGM);
-}
-export declare class DungeonModel {
-    chara: MainChara;
-    items: Item[];
-    enemyDesigns: EnemyDesign[];
-    floors: Floor[];
-    stairsList: Stairs[];
-    completeCount: number;
-    floorNum: number;
     enemies: Enemy[];
-    cell: Cell;
-    cells: Cell[][];
-    image: HTMLImageElement;
-    bgm: BGM;
     mappingMax: number;
     mappingCount: number;
     mappingRate: number;
+    constructor(mapExcelData: Readonly<number[][]>, image: HTMLImageElement, bgm: Bgm, enemyDesigns: Readonly<EnemyDesign[]>);
+    moveEnemy(enemy: Enemy, x: number, y: number): void;
+    deleteEnemy(x: number, y: number): Enemy;
+    updateMappingRate(): boolean;
+}
+export declare class DungeonModel {
+    readonly chara: MainChara;
+    readonly items: Item[];
+    readonly enemyDesigns: EnemyDesign[];
+    readonly floors: Floor[];
+    readonly stairsList: Stairs[];
+    completeCount: number;
+    floorNum: number;
+    floor: Floor;
+    cell: Cell;
     mappingPoints: Point[];
     constructor(chara: MainChara, items: Item[], enemyDesigns: EnemyDesign[], floors: Floor[], stairsList: Stairs[]);
     setCharaCoordinate(floorNum: number, x: number, y: number): void;
-    moveEnemy(enemy: Enemy, x: number, y: number): void;
-    deleteEnemy(x: number, y: number): Enemy;
-    updateMappingRate(notCount?: boolean): boolean;
     isGameCompleted(): boolean;
     mappingAll(cellEvent?: EVENT): void;
     mappingCell(x: number, y: number, stop?: boolean): void;
@@ -75,11 +55,11 @@ export declare class DungeonModel {
     enemyEvent(): Enemy;
 }
 export declare class DungeonView {
-    model: DungeonModel;
-    input: Input;
-    contexts: Contexts;
-    se: Se;
-    rects: {
+    readonly model: DungeonModel;
+    readonly input: Input;
+    readonly contexts: Contexts;
+    readonly se: Se;
+    readonly rects: {
         readonly status: Rect;
         readonly items: Rect;
         readonly message: Rect;
@@ -102,21 +82,21 @@ export declare class DungeonView {
     enqueueMessage(text: string, audio?: HTMLAudioElement | null, delay?: number, bgmStop?: boolean): void;
     floorCompleteEvent(): Promise<void>;
     gameCompleteEvent(): Promise<void>;
-    boxEvent(item: Item): Promise<void>;
-    enemyEvent(enemy: Enemy): Promise<void>;
+    boxEvent(item: Readonly<Item>): Promise<void>;
+    enemyEvent(enemy: Readonly<Enemy>): Promise<void>;
 }
 export declare class DungeonScreen {
-    model: DungeonModel;
-    view: DungeonView;
-    private input;
+    readonly model: DungeonModel;
+    readonly view: DungeonView;
+    private readonly input;
     nextFunction: () => void;
-    private triangles;
+    private readonly triangles;
     constructor(model: DungeonModel, view: DungeonView, input: Input);
     show(): void;
-    inputStandby(): void;
-    drawAndInputStandby(): void;
-    onInput(): Promise<void>;
-    getInputDirection(): DIRECTION | null;
+    private inputStandby;
+    private drawAndInputStandby;
+    private onInput;
+    private getInputDirection;
 }
 export {};
 //# sourceMappingURL=dungeon.d.ts.map

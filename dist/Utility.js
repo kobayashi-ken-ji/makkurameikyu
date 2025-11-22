@@ -97,27 +97,27 @@ export class Triangle {
         return (pbX * abY) - (pbY * abX);
     }
 }
-export class BGM extends Audio {
+export class Bgm extends Audio {
     constructor(filePath) {
         super(filePath);
         this.loop = true;
     }
     static stop() {
-        if (BGM.playingBGM) {
-            BGM.playingBGM.pause();
-            BGM.playingBGM.currentTime = 0;
-            BGM.playingBGM = null;
+        if (Bgm.playingBGM) {
+            Bgm.playingBGM.pause();
+            Bgm.playingBGM.currentTime = 0;
+            Bgm.playingBGM = null;
         }
     }
     play() {
-        if (BGM.isNotPlay)
+        if (Bgm.isNotPlay)
             return new Promise(() => { });
-        BGM.stop();
-        BGM.playingBGM = this;
+        Bgm.stop();
+        Bgm.playingBGM = this;
         return super.play();
     }
 }
-BGM.isNotPlay = false;
+Bgm.isNotPlay = false;
 export class ImageLoader {
     static load(filePath) {
         let image = new Image();

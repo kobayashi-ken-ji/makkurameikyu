@@ -12,8 +12,8 @@ declare class Walker {
     pxX: number;
     pxY: number;
     direction: DIRECTION;
-    private image;
-    private chipSize;
+    private readonly image;
+    private readonly chipSize;
     private i;
     constructor(image: HTMLImageElement, chipSize: number, x: number, y: number);
     setXY(x: number, y: number): void;
@@ -38,17 +38,17 @@ export declare enum ENEMY_RESULT {
     GAMEOVER = 13
 }
 export declare class Enemy extends Walker {
-    design: EnemyDesign;
+    readonly design: EnemyDesign;
     result: ENEMY_RESULT;
     constructor(design: EnemyDesign, x: number, y: number);
 }
 export declare class EnemyDesign {
-    chase: boolean;
-    safeItem: Item;
-    image: HTMLImageElement;
-    encountText: string;
-    safeText: string;
-    damageText: string;
+    readonly chase: boolean;
+    readonly safeItem: Item;
+    readonly image: HTMLImageElement;
+    readonly encountText: string;
+    readonly safeText: string;
+    readonly damageText: string;
     constructor(chase: boolean, safeItem: Item, image: HTMLImageElement, encountText: string, safeText: string, damageText: string);
     generate(x: number, y: number): Enemy;
 }

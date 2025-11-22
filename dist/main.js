@@ -8,8 +8,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { CANVAS_W, V_CANVAS_PX, DUNGEON_EXCEL_DATA, STAIRS_LIST } from './constants.js';
-import { Rect, BGM, ImageLoader, Context2D, Input } from './utility.js';
+import { CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST } from './constants.js';
+import { Rect, Bgm, ImageLoader, Context2D, Input } from './utility.js';
 import { Item, MainChara, EnemyDesign } from './character.js';
 import { Floor, DungeonModel, DungeonView, DungeonScreen } from './dungeon.js';
 class Main {
@@ -18,34 +18,34 @@ class Main {
             ui: Context2D.get("g_canvas3"),
             dark: Context2D.get("g_canvas2"),
             bg: Context2D.get("g_canvas1"),
-            preRender: Context2D.createVirtual(V_CANVAS_PX, V_CANVAS_PX),
+            preRender: Context2D.createVirtual(BG_CANVAS.W, BG_CANVAS.H),
         };
         const bgm = {
-            rockFloor: new BGM("sound/bgm118_okkuumura.mp3"),
-            stoneFloor: new BGM("sound/bgm221_chinkena.mp3"),
-            iceFloor: new BGM("sound/bgm137-zenjinmitou.mp3"),
+            rockFloor: new Bgm("sounds/bgm118_okkuumura.mp3"),
+            stoneFloor: new Bgm("sounds/bgm221_chinkena.mp3"),
+            iceFloor: new Bgm("sounds/bgm137-zenjinmitou.mp3"),
         };
         const se = {
-            complete1: new Audio("sound/se_fanfare1.wav"),
-            complete2: new Audio("sound/se_fanfare2.wav"),
-            stairs: new Audio("sound/se_kaidan.wav"),
-            openBox: new Audio("sound/se_takara.wav"),
-            useItem: new Audio("sound/se_present.wav"),
-            crash: new Audio("sound/se_crash.wav"),
-            select: new Audio("sound/se_select.wav"),
-            wall: new Audio("sound/se_pyokotto.wav"),
-            gameover: new Audio("sound/se_gameover.wav"),
-            encount: new Audio("sound/se_encount.wav"),
+            complete1: new Audio("sounds/se_fanfare1.wav"),
+            complete2: new Audio("sounds/se_fanfare2.wav"),
+            stairs: new Audio("sounds/se_kaidan.wav"),
+            openBox: new Audio("sounds/se_takara.wav"),
+            useItem: new Audio("sounds/se_present.wav"),
+            crash: new Audio("sounds/se_crash.wav"),
+            select: new Audio("sounds/se_select.wav"),
+            wall: new Audio("sounds/se_pyokotto.wav"),
+            gameover: new Audio("sounds/se_gameover.wav"),
+            encount: new Audio("sounds/se_encount.wav"),
         };
         const images = {
-            mainChara: ImageLoader.load("image/char_44px.png"),
-            enemyCat: ImageLoader.load("image/enm_chase.png"),
-            enemyChick: ImageLoader.load("image/enm_random.png"),
-            enemySlime: ImageLoader.load("image/enm_through.png"),
-            bgRock: ImageLoader.load("image/bg_rock.png"),
-            bgStone: ImageLoader.load("image/bg_stone.png"),
-            bgIce: ImageLoader.load("image/bg_ice.png"),
-            startScreen: ImageLoader.load("image/start_screen.png"),
+            mainChara: ImageLoader.load("images/char_44px.png"),
+            enemyCat: ImageLoader.load("images/enm_chase.png"),
+            enemyChick: ImageLoader.load("images/enm_random.png"),
+            enemySlime: ImageLoader.load("images/enm_through.png"),
+            bgRock: ImageLoader.load("images/bg_rock.png"),
+            bgStone: ImageLoader.load("images/bg_stone.png"),
+            bgIce: ImageLoader.load("images/bg_ice.png"),
+            startScreen: ImageLoader.load("images/start_screen.png"),
         };
         const items = [
             new Item(0, "ヘルメット"),
@@ -59,9 +59,9 @@ class Main {
         ];
         const chara = new MainChara(images.mainChara, 3);
         const floors = [
-            new Floor(DUNGEON_EXCEL_DATA[0], images.bgStone, bgm.stoneFloor),
-            new Floor(DUNGEON_EXCEL_DATA[1], images.bgRock, bgm.rockFloor),
-            new Floor(DUNGEON_EXCEL_DATA[2], images.bgIce, bgm.iceFloor),
+            new Floor(DUNGEON_EXCEL_DATA[0], images.bgStone, bgm.stoneFloor, enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[1], images.bgRock, bgm.rockFloor, enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[2], images.bgIce, bgm.iceFloor, enemyDesigns),
         ];
         const element = document.getElementById("g_canvas3");
         if (!element)
@@ -107,7 +107,7 @@ class StartScreen {
         context.textAlign = "center";
         context.textBaseline = "top";
         context.drawImage(this.bgImage, 0, 0);
-        const x = CANVAS_W / 2;
+        const x = CANVAS.W / 2;
         let y = 120;
         const texts = {
             title: "まっくら迷宮",
@@ -141,7 +141,7 @@ class EndScreen {
         context.textAlign = "center";
         context.textBaseline = "top";
         context.drawImage(this.bgImage, 0, 0);
-        const x = CANVAS_W / 2;
+        const x = CANVAS.W / 2;
         let y = 160;
         const texts = {
             title: "ゲームクリア",

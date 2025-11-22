@@ -1,7 +1,7 @@
 // ファイル内容
 //      Rect        - 矩形、テキストボックス
 //      Triangle    - 三角形 (クリック判定用)
-//      BGM         - Audioのループ再生・排他再生
+//      Bgm         - Audioのループ再生・排他再生
 //      ImageLoader - 画像読込ユーティリティ
 //      Input       - 入力受付 (クリック、キーボード、タッチ)
 
@@ -239,13 +239,13 @@ export class Triangle
 //      - Audioクラスを継承し、排他再生・ループ再生 を標準化
 //=============================================================================
 
-export class BGM extends Audio
+export class Bgm extends Audio
 {
     // BGMを再生しない
     static isNotPlay = false;
 
     // 再生中のBGM
-    private static playingBGM: BGM | null;
+    private static playingBGM: Bgm | null;
 
     // ループ再生を設定
     constructor(filePath: string) {
@@ -257,10 +257,10 @@ export class BGM extends Audio
      * 再生中のものがあれば停止
      */
     public static stop() {
-        if (BGM.playingBGM) {
-            BGM.playingBGM.pause();
-            BGM.playingBGM.currentTime = 0;
-            BGM.playingBGM = null;
+        if (Bgm.playingBGM) {
+            Bgm.playingBGM.pause();
+            Bgm.playingBGM.currentTime = 0;
+            Bgm.playingBGM = null;
         }
     }
 
@@ -269,9 +269,9 @@ export class BGM extends Audio
      */
     play(): Promise<void>
     {
-        if (BGM.isNotPlay) return new Promise(()=>{});
-        BGM.stop();
-        BGM.playingBGM = this;
+        if (Bgm.isNotPlay) return new Promise(()=>{});
+        Bgm.stop();
+        Bgm.playingBGM = this;
         return super.play();
     }
 }

@@ -1,13 +1,15 @@
 export const CELL_PX = 32;
 export const CHARA_PX = 44;
-export const CANVAS_W = 320;
-export const CANVAS_H = 480;
-export const V_CANVAS_PX = 1600;
-export const SCREEN_CENTER_X = 5;
-export const SCREEN_CENTER_Y = 5;
-export const SCREEN_CENTER_PX_X = SCREEN_CENTER_X * CELL_PX;
-export const SCREEN_CENTER_PX_Y = SCREEN_CENTER_Y * CELL_PX;
-export const INVISIBLE_CELL_COLOR = "black";
+export const CANVAS = {
+    W: 320,
+    H: 480,
+    CHARA_X: 5 * CELL_PX,
+    CHARA_Y: 5 * CELL_PX,
+};
+export const BG_CANVAS = {
+    W: (32 * CELL_PX) + CANVAS.W,
+    H: (32 * CELL_PX) + CANVAS.H,
+};
 export const WALK_PATTERN = [1, 0, 1, 2];
 export var DIRECTION;
 (function (DIRECTION) {

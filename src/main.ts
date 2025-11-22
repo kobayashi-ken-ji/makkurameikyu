@@ -10,11 +10,12 @@
 // インポート
 //=============================================================================
 
-import {CANVAS_W,  V_CANVAS_PX, DUNGEON_EXCEL_DATA, STAIRS_LIST} from './constants.js';
-import {Rect, BGM, ImageLoader, Context2D, Input} from './utility.js';
+import {CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST, type Contexts, type Se}
+from './constants.js';
+
+import {Rect, Bgm, ImageLoader, Context2D, Input} from './utility.js';
 import {Item, MainChara, EnemyDesign} from './character.js';
-import {Floor, DungeonModel, DungeonView, DungeonScreen, type Contexts, type Se}
-from './dungeon.js';
+import {Floor, DungeonModel, DungeonView, DungeonScreen} from './dungeon.js';
 
 //=============================================================================
 // ゲーム本体
@@ -26,10 +27,10 @@ from './dungeon.js';
 
 class Main
 {
-    input        : Input;
-    startScreen  : StartScreen;
-    endScreen    : EndScreen;
-    dungeonScreen: DungeonScreen;
+    readonly input         : Input;
+    readonly startScreen   : StartScreen;
+    readonly endScreen     : EndScreen;
+    readonly dungeonScreen : DungeonScreen;
 
     constructor() {
         //---------------------------------------------------------------------
@@ -41,41 +42,41 @@ class Main
             ui        : Context2D.get("g_canvas3"),    // ステータス、ボタン、テキスト、地図用
             dark      : Context2D.get("g_canvas2"),    // 暗闇用
             bg        : Context2D.get("g_canvas1"),    // キャラ、敵、背景用
-            preRender : Context2D.createVirtual(V_CANVAS_PX, V_CANVAS_PX), // 背景 事前描画用
+            preRender : Context2D.createVirtual(BG_CANVAS.W, BG_CANVAS.H), // 背景 事前描画用
         };
 
         // BGM (ループ再生・排他再生)
         const bgm = {
-            rockFloor  : new BGM("sound/bgm118_okkuumura.mp3"  ),
-            stoneFloor : new BGM("sound/bgm221_chinkena.mp3"   ),
-            iceFloor   : new BGM("sound/bgm137-zenjinmitou.mp3"),
-        }
+            rockFloor  : new Bgm("sounds/bgm118_okkuumura.mp3"  ),
+            stoneFloor : new Bgm("sounds/bgm221_chinkena.mp3"   ),
+            iceFloor   : new Bgm("sounds/bgm137-zenjinmitou.mp3"),
+        };
 
         // 効果音
         const se: Se = {
-            complete1 : new Audio("sound/se_fanfare1.wav"),    // 階層クリア
-            complete2 : new Audio("sound/se_fanfare2.wav"),    // ゲームクリア
-            stairs    : new Audio("sound/se_kaidan.wav"),      // 階段移動
-            openBox   : new Audio("sound/se_takara.wav"),      // 宝箱
-            useItem   : new Audio("sound/se_present.wav"),     // アイテムで敵を回避
-            crash     : new Audio("sound/se_crash.wav"),       // 敵と衝突
-            select    : new Audio("sound/se_select.wav"),      // 選択音 (メッセージ表示)
-            wall      : new Audio("sound/se_pyokotto.wav"),    // 壁衝突音
-            gameover  : new Audio("sound/se_gameover.wav"),    // ゲームオーバー
-            encount   : new Audio("sound/se_encount.wav"),     // 遭遇
+            complete1 : new Audio("sounds/se_fanfare1.wav"),    // 階層クリア
+            complete2 : new Audio("sounds/se_fanfare2.wav"),    // ゲームクリア
+            stairs    : new Audio("sounds/se_kaidan.wav"),      // 階段移動
+            openBox   : new Audio("sounds/se_takara.wav"),      // 宝箱
+            useItem   : new Audio("sounds/se_present.wav"),     // アイテムで敵を回避
+            crash     : new Audio("sounds/se_crash.wav"),       // 敵と衝突
+            select    : new Audio("sounds/se_select.wav"),      // 選択音 (メッセージ表示)
+            wall      : new Audio("sounds/se_pyokotto.wav"),    // 壁衝突音
+            gameover  : new Audio("sounds/se_gameover.wav"),    // ゲームオーバー
+            encount   : new Audio("sounds/se_encount.wav"),     // 遭遇
         };
 
 
         // 画像 (ゲーム開始時に読込待ちが必要)
         const images = {
-            mainChara   : ImageLoader.load("image/char_44px.png"),     // キャラ
-            enemyCat    : ImageLoader.load("image/enm_chase.png"),     // 敵_追跡
-            enemyChick  : ImageLoader.load("image/enm_random.png"),    // 敵_ランダム
-            enemySlime  : ImageLoader.load("image/enm_through.png"),   // 敵_壁通過
-            bgRock      : ImageLoader.load("image/bg_rock.png"),       // 背景_岩
-            bgStone     : ImageLoader.load("image/bg_stone.png"),      // 背景_石
-            bgIce       : ImageLoader.load("image/bg_ice.png"),        // 背景_氷
-            startScreen : ImageLoader.load("image/start_screen.png"),  // スタート画面
+            mainChara   : ImageLoader.load("images/char_44px.png"),     // キャラ
+            enemyCat    : ImageLoader.load("images/enm_chase.png"),     // 敵_追跡
+            enemyChick  : ImageLoader.load("images/enm_random.png"),    // 敵_ランダム
+            enemySlime  : ImageLoader.load("images/enm_through.png"),   // 敵_壁通過
+            bgRock      : ImageLoader.load("images/bg_rock.png"),       // 背景_岩
+            bgStone     : ImageLoader.load("images/bg_stone.png"),      // 背景_石
+            bgIce       : ImageLoader.load("images/bg_ice.png"),        // 背景_氷
+            startScreen : ImageLoader.load("images/start_screen.png"),  // スタート画面
         };
         
         //---------------------------------------------------------------------
@@ -128,9 +129,9 @@ class Main
 
         // ダンジョンの階層データ
         const floors = [
-            new Floor( DUNGEON_EXCEL_DATA[0], images.bgStone, bgm.stoneFloor ),
-            new Floor( DUNGEON_EXCEL_DATA[1], images.bgRock,  bgm.rockFloor  ),
-            new Floor( DUNGEON_EXCEL_DATA[2], images.bgIce,   bgm.iceFloor   ),
+            new Floor( DUNGEON_EXCEL_DATA[0], images.bgStone, bgm.stoneFloor, enemyDesigns),
+            new Floor( DUNGEON_EXCEL_DATA[1], images.bgRock,  bgm.rockFloor , enemyDesigns),
+            new Floor( DUNGEON_EXCEL_DATA[2], images.bgIce,   bgm.iceFloor  , enemyDesigns),
         ];
 
         // 入力クラス
@@ -195,9 +196,9 @@ class StartScreen
      * @param input   入力クラス
      */
     constructor(
-        private context: CanvasRenderingContext2D,
-        private bgImage: HTMLImageElement,
-        private input  : Input
+        private readonly context: CanvasRenderingContext2D,
+        private readonly bgImage: HTMLImageElement,
+        private readonly input  : Input
     ) {}
 
     // 画面を表示、クリックされたら次の画面へ
@@ -219,7 +220,7 @@ class StartScreen
         // 画像背景
         context.drawImage(this.bgImage, 0, 0);
 
-        const x = CANVAS_W / 2;
+        const x = CANVAS.W / 2;
         let   y = 120;
 
         const texts = {
@@ -260,9 +261,9 @@ class EndScreen
      * @param chara   ゲームのリザルトを所持しているクラス
      */
     constructor(
-        private context: CanvasRenderingContext2D,
-        private bgImage: HTMLImageElement,
-        private chara  : MainChara
+        private readonly context: CanvasRenderingContext2D,
+        private readonly bgImage: HTMLImageElement,
+        private readonly chara  : MainChara
     ) {}
 
     
@@ -279,7 +280,7 @@ class EndScreen
         // 画像背景
         context.drawImage(this.bgImage, 0, 0);
 
-        const x = CANVAS_W / 2;
+        const x = CANVAS.W / 2;
         let   y = 160;
 
         const texts = {

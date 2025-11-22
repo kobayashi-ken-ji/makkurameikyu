@@ -3,40 +3,84 @@
 //=============================================================================
 
 // 1セルのサイズ
-export const CELL_PX            = 32;
-export const CHARA_PX           = 44;
+export const CELL_PX  = 32;
+export const CHARA_PX = 44;
 
-// キャンバス  サイズ, セル数
-export const CANVAS_W           = 320;  // CELL_PX * 10セル
-export const CANVAS_H           = 480;  // CELL_PX * 15セル
 
-// 仮想キャンバス サイズ  (縦横共通)
-export const V_CANVAS_PX        = 1600; // CELL_PX * 50セル
+/**
+ * キャンバスのサイズ
+ * @param W     幅   (10セル分)
+ * @param H     高さ (15セル分)
+ * @param CHARA_X   主人公の描画座標X (中心までの幅)
+ * @param CHARA_Y   主人公の描画座標Y (中心までの高さ)
+ */
+export const CANVAS = {
+    W : 320,
+    H : 480,
+    CHARA_X : 5 * CELL_PX,
+    CHARA_Y : 5 * CELL_PX,
 
-// 画面上の中心 (主人公の表示位置)  セル座標、ピクセル座標
-export const SCREEN_CENTER_X    = 5;
-export const SCREEN_CENTER_Y    = 5;
-export const SCREEN_CENTER_PX_X = SCREEN_CENTER_X * CELL_PX;
-export const SCREEN_CENTER_PX_Y = SCREEN_CENTER_Y * CELL_PX;
+} as const;
 
-// 不可視セルの色
-export const INVISIBLE_CELL_COLOR = "black";    // #101010
+
+
+/**
+ * 背景プリレンダ用 キャンバスサイズ
+ * @param W     幅   (描画横幅 + 左右余白)
+ * @param H     高さ (描画縦幅 + 上下余白)
+ */
+export const BG_CANVAS = {
+    W : (32 * CELL_PX) + CANVAS.W,
+    H : (32 * CELL_PX) + CANVAS.H,
+    
+} as const;
+
 
 //=============================================================================
 // 画像シートから、キャラチップを取得
+//      TypeScript 5.0 以降では enum は型安全
 //=============================================================================
 
-// 歩行パターン  (画像の x軸)
+// 歩行パターン  (画像シートの x軸)
 export const WALK_PATTERN = [1, 0, 1, 2] as const;
 
-// 向き  (画像の y軸)
-// TypeScript 5.0 以降では enum は型安全
+// 向き  (画像シートの y軸)
 export enum DIRECTION  {
     UP    = 0,
     RIGHT = 1,
     DOWN  = 2,
     LEFT  = 3,
 }
+
+//=============================================================================
+// リソースリストの定義
+//=============================================================================
+
+/**
+ * キャンバスリスト
+ */
+export type Contexts = Readonly<{
+    ui        : CanvasRenderingContext2D,   // ステータス、ボタン、テキスト、地図用
+    dark      : CanvasRenderingContext2D,   // 暗闇用
+    bg        : CanvasRenderingContext2D,   // キャラ、敵、背景用
+    preRender : CanvasRenderingContext2D,   // 背景 事前描画用
+}>;
+
+/**
+ * 効果音リスト
+ */
+export type Se = Readonly<{
+    complete1 : HTMLAudioElement,   // 階層クリア
+    complete2 : HTMLAudioElement,   // ゲームクリア
+    stairs    : HTMLAudioElement,   // 階段移動
+    openBox   : HTMLAudioElement,   // 宝箱
+    useItem   : HTMLAudioElement,   // アイテムで敵を回避
+    crash     : HTMLAudioElement,   // 敵と衝突
+    select    : HTMLAudioElement,   // 選択音 (メッセージ表示)
+    wall      : HTMLAudioElement,   // 壁衝突音
+    gameover  : HTMLAudioElement,   // ゲームオーバー
+    encount   : HTMLAudioElement,   // 遭遇
+}>;
 
 //=============================================================================
 // ダンジョンデータ
@@ -55,11 +99,12 @@ export const STAIRS_LIST: Stairs[] = [
     [1, 15, 8 ],
     [2, 25, 12],
     [1, 28, 29],
-];
+] as const;
+
 
 // 全階層
 type floor = number[][];
-export const DUNGEON_EXCEL_DATA: [floor, floor, floor] = [
+export const DUNGEON_EXCEL_DATA: [floor,floor,floor] = [
 
     // 0階層
     [
@@ -169,4 +214,4 @@ export const DUNGEON_EXCEL_DATA: [floor, floor, floor] = [
         [2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2011, 2011, 2011, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2012, 2011, 2012, 2012, 2012, 2012],
 
     ],
-];
+] as const;

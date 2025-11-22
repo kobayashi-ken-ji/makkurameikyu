@@ -1,4 +1,4 @@
-import { CELL_PX, CHARA_PX, SCREEN_CENTER_X, SCREEN_CENTER_Y, WALK_PATTERN, DIRECTION, } from './constants.js';
+import { CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, DIRECTION } from './constants.js';
 export class Item {
     constructor(quantity, name) {
         this.quantity = quantity;
@@ -54,8 +54,8 @@ export class MainChara extends Walker {
         this.walkCount = 0;
         this.safeCount = 0;
         this.diff = CHARA_PX - CELL_PX;
-        this.screenX = SCREEN_CENTER_X * CELL_PX - (this.diff / 2);
-        this.screenY = SCREEN_CENTER_Y * CELL_PX - this.diff;
+        this.screenX = CANVAS.CHARA_X - (this.diff / 2);
+        this.screenY = CANVAS.CHARA_Y - this.diff;
         this.hpMax = hpMax;
         this.hp = hpMax;
     }

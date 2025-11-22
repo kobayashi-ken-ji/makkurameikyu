@@ -7,9 +7,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { CELL_PX, CANVAS_W, CANVAS_H, V_CANVAS_PX, SCREEN_CENTER_X, SCREEN_CENTER_Y, SCREEN_CENTER_PX_X, SCREEN_CENTER_PX_Y, DIRECTION, INVISIBLE_CELL_COLOR } from './constants.js';
-import { Rect, BGM, Point, Triangle, Input } from './utility.js';
+import { CELL_PX, CANVAS, BG_CANVAS, DIRECTION } from './constants.js';
+import { Rect, Bgm, Point, Triangle, Input } from './utility.js';
 import { Item, MainChara, EnemyDesign, Enemy, ENEMY_RESULT } from './character.js';
+const INVISIBLE_CELL_COLOR = "black";
 var EVENT;
 (function (EVENT) {
     EVENT[EVENT["NONE"] = 1] = "NONE";
@@ -51,76 +52,30 @@ export class Cell {
     }
 }
 export class Floor {
-    constructor(mapExcelData, image, bgm) {
+    constructor(mapExcelData, image, bgm, enemyDesigns) {
+        this.mappingMax = 0;
+        this.mappingCount = 0;
+        this.mappingRate = 0;
+        const cells = mapExcelData.map(line => line.map(num => new Cell(num)));
+        this.cells = cells;
         this.image = image;
         this.bgm = bgm;
-        this.cells =
-            mapExcelData.map(line => line.map(num => new Cell(num)));
-    }
-}
-export class DungeonModel {
-    constructor(chara, items, enemyDesigns, floors, stairsList) {
-        this.completeCount = 0;
-        this.floorNum = 0;
         this.enemies = [];
-        this.mappingMax = 0;
-        this.mappingCount = 0;
-        this.mappingRate = 0;
-        this.mappingPoints = [];
-        this.chara = chara;
-        this.items = items;
-        this.enemyDesigns = enemyDesigns;
-        this.floors = floors;
-        this.stairsList = stairsList;
-        const floorNum = 0;
-        const floor = this.floors[floorNum];
-        if (!floor)
-            throw new Error("floorNum が不適切です : " + floorNum);
-        const cells = floor.cells;
-        this.floorNum = floorNum;
-        this.cells = cells;
-        this.image = floor.image;
-        this.bgm = floor.bgm;
-        this.cell = cells[0][0];
-    }
-    setCharaCoordinate(floorNum, x, y) {
-        const chara = this.chara;
-        chara.setXY(x, y);
-        chara.direction = DIRECTION.DOWN;
-        const floor = this.floors[floorNum];
-        if (!floor)
-            throw new Error("floorNum が不適切です : " + floorNum);
-        const cells = floor.cells;
-        this.floorNum = floorNum;
-        this.cells = cells;
-        this.image = floor.image;
-        this.bgm = floor.bgm;
-        this.enemies = [];
-        this.mappingPoints = [];
-        this.mappingMax = 0;
-        this.mappingCount = 0;
-        this.mappingRate = 0;
-        this.mappingCell(x, y);
-        this.mappingAround(x, y);
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
                 const cell = cells[y][x];
                 const enemyNum = cell.getEnemyNum();
                 if (enemyNum != -1) {
-                    const design = this.enemyDesigns[enemyNum];
+                    const design = enemyDesigns[enemyNum];
                     if (!design)
                         throw Error("enemyNum が不適切です : " + enemyNum);
                     const enemy = design.generate(x, y);
                     this.enemies.push(enemy);
                 }
-                if (cell.event != EVENT.WALL) {
+                if (cell.event != EVENT.WALL)
                     this.mappingMax++;
-                    if (cell.visible)
-                        this.mappingCount++;
-                }
             }
         }
-        this.updateMappingRate(true);
     }
     moveEnemy(enemy, x, y) {
         var _a, _b;
@@ -151,23 +106,48 @@ export class DungeonModel {
         }
         throw new Error("指定座標に敵は存在しません");
     }
-    updateMappingRate(notCount = false) {
+    updateMappingRate() {
         if (this.mappingRate === 100)
             return false;
         this.mappingRate = Math.floor(this.mappingCount / this.mappingMax * 100);
         const isCompleted = (this.mappingRate === 100);
-        if (isCompleted) {
-            if (!notCount)
-                this.completeCount++;
-            this.mappingAll();
-        }
         return isCompleted;
+    }
+}
+export class DungeonModel {
+    constructor(chara, items, enemyDesigns, floors, stairsList) {
+        this.completeCount = 0;
+        this.floorNum = 0;
+        this.mappingPoints = [];
+        this.chara = chara;
+        this.items = items;
+        this.enemyDesigns = enemyDesigns;
+        this.floors = floors;
+        this.stairsList = stairsList;
+        const floor = this.floors[0];
+        if (!floor)
+            throw new Error("floorsの要素数が0です");
+        this.floor = floor;
+        this.cell = this.floor.cells[0][0];
+    }
+    setCharaCoordinate(floorNum, x, y) {
+        const chara = this.chara;
+        chara.setXY(x, y);
+        chara.direction = DIRECTION.DOWN;
+        const floor = this.floors[floorNum];
+        if (!floor)
+            throw new Error("floorNum が不適切です : " + floorNum);
+        this.floorNum = floorNum;
+        this.floor = floor;
+        this.mappingCell(x, y);
+        this.mappingAround(x, y);
+        floor.updateMappingRate();
     }
     isGameCompleted() {
         return (this.completeCount == this.floors.length);
     }
     mappingAll(cellEvent) {
-        const cells = this.cells;
+        const cells = this.floor.cells;
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
                 if (cellEvent == undefined ||
@@ -178,14 +158,15 @@ export class DungeonModel {
     }
     mappingCell(x, y, stop = false) {
         var _a;
-        const cell = (_a = this.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
+        const floor = this.floor;
+        const cell = (_a = floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
         if (!cell)
             throw new CoordinateError(x, y);
         if (!cell.visible) {
             cell.visible = true;
             this.mappingPoints.push(new Point(x, y));
             if (cell.event != EVENT.WALL) {
-                this.mappingCount++;
+                floor.mappingCount++;
                 return;
             }
         }
@@ -223,15 +204,13 @@ export class DungeonModel {
             x += -1;
         else if (direction == DIRECTION.RIGHT)
             x += 1;
-        const cell = (_a = this.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
+        const cell = (_a = this.floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
         if (!cell)
             throw new CoordinateError(x, y);
         const isWall = (cell.event == EVENT.WALL);
         this.mappingPoints = [];
-        (isWall)
-            ? this.mappingCell(x, y)
-            : this.mappingAround(x, y);
         if (!isWall) {
+            this.mappingAround(x, y);
             chara.setXY(x, y);
             chara.walkCount++;
             this.cell = cell;
@@ -239,10 +218,10 @@ export class DungeonModel {
         return isWall;
     }
     walkEnemy(enemy) {
-        const { chara, cells } = this;
+        const { chara, floor } = this;
         const { x, y } = enemy;
         if (x == chara.x && y == chara.y) {
-            this.moveEnemy(enemy, x, y);
+            floor.moveEnemy(enemy, x, y);
             return;
         }
         const coords = [
@@ -250,9 +229,9 @@ export class DungeonModel {
             new Point(x, y + 1),
             new Point(x - 1, y),
             new Point(x + 1, y),
-        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == EVENT.NONE); });
+        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == EVENT.NONE); });
         if (coords.length == 0) {
-            this.moveEnemy(enemy, x, y);
+            floor.moveEnemy(enemy, x, y);
             return;
         }
         if (enemy.design.chase) {
@@ -266,12 +245,12 @@ export class DungeonModel {
                     minCoord = coord;
                 }
             }
-            this.moveEnemy(enemy, minCoord.x, minCoord.y);
+            floor.moveEnemy(enemy, minCoord.x, minCoord.y);
         }
         else {
             const i = Math.floor(Math.random() * coords.length);
             const { x, y } = coords[i];
-            this.moveEnemy(enemy, x, y);
+            floor.moveEnemy(enemy, x, y);
         }
     }
     boxEvent() {
@@ -292,7 +271,7 @@ export class DungeonModel {
     }
     enemyEvent() {
         const chara = this.chara;
-        const enemy = this.deleteEnemy(chara.x, chara.y);
+        const enemy = this.floor.deleteEnemy(chara.x, chara.y);
         const safeItem = enemy.design.safeItem;
         if (safeItem.quantity > 0) {
             safeItem.quantity--;
@@ -325,7 +304,7 @@ export class DungeonView {
         };
     }
     drawAll() {
-        this.contexts.ui.clearRect(0, 0, CANVAS_W + 1, CANVAS_H + 1);
+        this.contexts.ui.clearRect(0, 0, CANVAS.W + 1, CANVAS.H + 1);
         this.drawDark();
         this.drawStatus();
         this.drawButton();
@@ -333,16 +312,16 @@ export class DungeonView {
         this.drawMap();
     }
     drawFloor(shiftPx = 0) {
-        const chara = this.model.chara;
+        const { chara, floor } = this.model;
         const { bg: contextBg, preRender: contextPre } = this.contexts;
         const bgX = chara.pxX - (chara.moveX * shiftPx);
         const bgY = chara.pxY - (chara.moveY * shiftPx);
-        const bgImage = contextPre.getImageData(bgX, bgY, CANVAS_W, CANVAS_H);
+        const bgImage = contextPre.getImageData(bgX, bgY, CANVAS.W, CANVAS.H);
         contextBg.putImageData(bgImage, 0, 0);
-        for (const enemy of this.model.enemies) {
+        for (const enemy of floor.enemies) {
             const enemyX = enemy.pxX - (enemy.moveX * shiftPx);
             const enemyY = enemy.pxY - (enemy.moveY * shiftPx);
-            enemy.draw(contextBg, SCREEN_CENTER_PX_X + enemyX - bgX, SCREEN_CENTER_PX_Y + enemyY - bgY);
+            enemy.draw(contextBg, CANVAS.CHARA_X + enemyX - bgX, CANVAS.CHARA_Y + enemyY - bgY);
         }
         chara.draw(contextBg);
     }
@@ -352,9 +331,9 @@ export class DungeonView {
         const WIDTH = LENGTH * CELL_PX;
         const LEFT = 10;
         const TOP = 50;
-        const cells = this.model.cells;
-        const context = this.contexts.ui;
         const chara = this.model.chara;
+        const cells = this.model.floor.cells;
+        const context = this.contexts.ui;
         context.clearRect(LEFT, TOP, WIDTH, WIDTH);
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
@@ -384,10 +363,10 @@ export class DungeonView {
     }
     drawStatus() {
         const rects = this.rects;
-        const { floorNum, mappingRate, chara, items } = this.model;
+        const { floorNum, floor, chara, items } = this.model;
         const { hpMax, hp, walkCount } = chara;
         const hpText = "●".repeat(hp) + "○".repeat(hpMax - hp);
-        const status = `地下${floorNum}階  ${mappingRate}％  ${walkCount}歩  HP${hpText}`;
+        const status = `地下${floorNum}階  ${floor.mappingRate}％  ${walkCount}歩  HP${hpText}`;
         let equipment = "そうび\n";
         for (const { quantity, name } of items) {
             if (quantity > 0)
@@ -400,19 +379,19 @@ export class DungeonView {
         const ALPHA = 0.7;
         const BLUR = 8;
         const context = this.contexts.dark;
-        context.clearRect(0, 0, CANVAS_W + 1, CANVAS_H + 1);
-        const isCompleted = (this.model.mappingRate == 100);
+        context.clearRect(0, 0, CANVAS.W + 1, CANVAS.H + 1);
+        const isCompleted = (this.model.floor.mappingRate == 100);
         if (isCompleted)
             return;
         context.save();
         context.globalAlpha = ALPHA;
         context.fillStyle = "black";
-        context.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        context.fillRect(0, 0, CANVAS.W, CANVAS.H);
         context.globalAlpha = 1;
         context.globalCompositeOperation = "destination-out";
         context.filter = `blur(${BLUR}px)`;
-        const centerX = (SCREEN_CENTER_X + 0.5) * CELL_PX;
-        const centerY = (SCREEN_CENTER_Y + 0.5) * CELL_PX;
+        const centerX = CANVAS.CHARA_X + (CELL_PX / 2);
+        const centerY = CANVAS.CHARA_Y + (CELL_PX / 2);
         const radius = CELL_PX * 1.5;
         context.beginPath();
         context.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -423,21 +402,21 @@ export class DungeonView {
         this.se.stairs.play();
         const context = this.contexts.ui;
         context.fillStyle = "black";
-        context.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        context.fillRect(0, 0, CANVAS.W, CANVAS.H);
         const text = "地下" + this.model.floorNum + "階";
         context.fillStyle = "white";
         context.font = "30px 'ＭＳ ゴシック'";
         context.textAlign = "left";
         context.textBaseline = "top";
-        context.fillText(text, CANVAS_W / 3, CANVAS_H / 2);
+        context.fillText(text, CANVAS.W / 3, CANVAS.H / 2);
     }
     animateWalking(nextFunction) {
         const salf = this;
-        const { chara, enemies, mappingPoints } = this.model;
+        const { chara, floor, mappingPoints } = this.model;
         for (const { x, y } of mappingPoints)
             this.preRenderCell(x, y);
         chara.nextPattern();
-        for (const enemy of enemies)
+        for (const enemy of floor.enemies)
             enemy.nextPattern();
         const FRAME_LENGTH = 6;
         const INTERVAL = 28;
@@ -458,9 +437,9 @@ export class DungeonView {
     }
     preRenderAll() {
         const context = this.contexts.preRender;
-        const cells = this.model.cells;
+        const cells = this.model.floor.cells;
         context.fillStyle = INVISIBLE_CELL_COLOR;
-        context.fillRect(0, 0, V_CANVAS_PX + 1, V_CANVAS_PX + 1);
+        context.fillRect(0, 0, BG_CANVAS.W + 1, BG_CANVAS.H + 1);
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
                 this.preRenderCell(x, y);
@@ -470,9 +449,9 @@ export class DungeonView {
     preRenderCell(x, y) {
         var _a;
         const context = this.contexts.preRender;
-        const { cells, image } = this.model;
-        const left = (x + SCREEN_CENTER_X) * CELL_PX;
-        const top = (y + SCREEN_CENTER_Y) * CELL_PX;
+        const { cells, image } = this.model.floor;
+        const left = CANVAS.CHARA_X + (x * CELL_PX);
+        const top = CANVAS.CHARA_Y + (y * CELL_PX);
         const cell = (_a = cells[y]) === null || _a === void 0 ? void 0 : _a[x];
         if (!cell)
             throw new CoordinateError(x, y);
@@ -485,7 +464,7 @@ export class DungeonView {
         this.input.enqueue(() => {
             this.rects.message.draw(text, true);
             if (bgmStop)
-                BGM.stop();
+                Bgm.stop();
             if (audio)
                 audio.play();
         }, delay);
@@ -503,7 +482,7 @@ export class DungeonView {
         return new Promise(resolve => {
             const { input, se, rects } = this;
             input.enqueue(() => {
-                BGM.stop();
+                Bgm.stop();
                 se.complete2.play();
                 rects.message.draw("すべての階の地図が完成した！", true);
             }, 3000);
@@ -538,7 +517,7 @@ export class DungeonView {
                     se.crash.play();
                     const context = this.contexts.dark;
                     context.fillStyle = "white";
-                    context.fillRect(0, 0, CANVAS_W, CANVAS_H);
+                    context.fillRect(0, 0, CANVAS.W, CANVAS.H);
                     setTimeout(() => {
                         this.drawDark();
                         this.drawStatus();
@@ -572,7 +551,7 @@ export class DungeonScreen {
         const { model, view } = this;
         view.drawStairsScreen();
         setTimeout(() => {
-            model.bgm.play();
+            model.floor.bgm.play();
             view.preRenderAll();
             this.drawAndInputStandby();
         }, 1500);
@@ -587,6 +566,7 @@ export class DungeonScreen {
     onInput() {
         return __awaiter(this, void 0, void 0, function* () {
             const { model, view } = this;
+            const floor = model.floor;
             const direction = this.getInputDirection();
             if (direction == null) {
                 this.inputStandby();
@@ -594,18 +574,20 @@ export class DungeonScreen {
             }
             const isWall = model.walkChara(direction);
             if (isWall) {
-                this.view.se.wall.play();
-                this.view.drawFloor();
+                view.se.wall.play();
+                view.drawFloor();
                 this.inputStandby();
                 return;
             }
-            for (let enemy of model.enemies)
+            for (let enemy of floor.enemies)
                 model.walkEnemy(enemy);
             yield new Promise(resolve => view.animateWalking(resolve));
-            const isFloorCompleted = model.updateMappingRate();
+            const isFloorCompleted = floor.updateMappingRate();
             view.drawStatus();
             view.drawMap();
             if (isFloorCompleted) {
+                model.completeCount++;
+                model.mappingAll();
                 view.preRenderAll();
                 view.drawFloor();
                 yield view.floorCompleteEvent();

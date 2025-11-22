@@ -25,7 +25,7 @@ export declare class Triangle {
     contains(x: number, y: number): boolean;
     private getVectorProduct;
 }
-export declare class BGM extends Audio {
+export declare class Bgm extends Audio {
     static isNotPlay: boolean;
     private static playingBGM;
     constructor(filePath: string);
