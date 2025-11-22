@@ -410,11 +410,10 @@ export class DungeonView {
         context.textBaseline = "top";
         context.fillText(text, CANVAS.W / 3, CANVAS.H / 2);
     }
-    animateWalking(nextFunction) {
-        const salf = this;
+    animateWalking(direction, nextFunction) {
+        const self = this;
         const { chara, floor, mappingPoints } = this.model;
-        for (const { x, y } of mappingPoints)
-            this.preRenderCell(x, y);
+        const ctxPre = this.contexts.preRender;
         chara.nextPattern();
         for (const enemy of floor.enemies)
             enemy.nextPattern();
@@ -422,6 +421,11 @@ export class DungeonView {
         const INTERVAL = 28;
         const FRAME_PX = CELL_PX / FRAME_LENGTH;
         let i = FRAME_LENGTH;
+        const x = CANVAS.CHARA_X + chara.pxX - CELL_PX;
+        const y = CANVAS.CHARA_Y + chara.pxY - CELL_PX;
+        const w = CELL_PX * 3;
+        const h = CELL_PX * 3;
+        const isHorizontalMove = (chara.moveX != 0);
         drawFrame();
         const bgAnimID = setInterval(drawFrame, INTERVAL);
         function drawFrame() {
@@ -432,7 +436,16 @@ export class DungeonView {
                 return;
             }
             const shiftPx = FRAME_PX * i;
-            salf.drawFloor(shiftPx);
+            if (i != 0) {
+                ctxPre.save();
+                const path = new Path2D();
+                path.rect((isHorizontalMove) ? x + shiftPx : x, (!isHorizontalMove) ? y + shiftPx : y, (isHorizontalMove) ? w - shiftPx * 2 : w, (!isHorizontalMove) ? h - shiftPx * 2 : h);
+                ctxPre.clip(path);
+            }
+            for (const { x, y } of mappingPoints)
+                self.preRenderCell(x, y);
+            ctxPre.restore();
+            self.drawFloor(shiftPx);
         }
     }
     preRenderAll() {
@@ -581,7 +594,7 @@ export class DungeonScreen {
             }
             for (let enemy of floor.enemies)
                 model.walkEnemy(enemy);
-            yield new Promise(resolve => view.animateWalking(resolve));
+            yield new Promise(resolve => view.animateWalking(direction, resolve));
             const isFloorCompleted = floor.updateMappingRate();
             view.drawStatus();
             view.drawMap();

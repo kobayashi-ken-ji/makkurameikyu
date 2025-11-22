@@ -831,14 +831,11 @@ export class DungeonView
      * キャラ、敵、背景 をアニメーションする
      * @param nextFunction アニメ終了後に実行する処理
      */
-    animateWalking(nextFunction: ()=>void) {
+    animateWalking(direction: DIRECTION, nextFunction: ()=>void) {
 
-        const salf = this;
+        const self = this;
         const {chara, floor, mappingPoints} = this.model;
-
-        // 新しくマッピングした背景をプリレンダ
-        for (const {x,y} of mappingPoints)
-            this.preRenderCell(x, y);
+        const ctxPre = this.contexts.preRender;
 
         // 歩行パターン を次のものに変更
         chara.nextPattern();
@@ -853,6 +850,13 @@ export class DungeonView
         // フレームカウンタ (カウントダウン方式)
         let i = FRAME_LENGTH;
 
+        // キャラを中心に 3*3セル の範囲 (背景描画用)
+        const x = CANVAS.CHARA_X + chara.pxX - CELL_PX;
+        const y = CANVAS.CHARA_Y + chara.pxY - CELL_PX;
+        const w = CELL_PX * 3;
+        const h = CELL_PX * 3;
+        const isHorizontalMove = (chara.moveX != 0);
+        
         // アニメ処理
         drawFrame();                                        // 1フレーム目
         const bgAnimID = setInterval(drawFrame, INTERVAL);  // 2フレーム目以降
@@ -872,7 +876,31 @@ export class DungeonView
             //      「描画位置 = 移動後座標 - ずらすpx」になる
             //      最終フレームで ズレは0px になる
             const shiftPx = FRAME_PX * i;
-            salf.drawFloor(shiftPx);
+
+            // 新しくマッピングされた背景の 描画範囲を限定 
+            //      アニメに合わせて、描画範囲を広げていく
+            //      最終フレームは限定せず、全て描画
+            if (i != 0) {
+                ctxPre.save();
+                const path = new Path2D();
+                path.rect(
+                    ( isHorizontalMove) ? x + shiftPx   : x,
+                    (!isHorizontalMove) ? y + shiftPx   : y,
+                    ( isHorizontalMove) ? w - shiftPx*2 : w,
+                    (!isHorizontalMove) ? h - shiftPx*2 : h
+                );
+                ctxPre.clip(path);
+            }
+            
+            // 新しくマッピングした背景をプリレンダ
+            for (const {x,y} of mappingPoints) 
+                self.preRenderCell(x, y);
+            
+            // 範囲の限定を解除
+            ctxPre.restore();
+
+            // 実キャンバスへ描画
+            self.drawFloor(shiftPx);
         }
     }
 
@@ -1171,7 +1199,7 @@ export class DungeonScreen
             model.walkEnemy(enemy);
 
         // 歩行アニメーション
-        await new Promise<void>(resolve => view.animateWalking(resolve));
+        await new Promise<void>(resolve => view.animateWalking(direction, resolve));
 
         //---------------------------------------
         // クリアイベント

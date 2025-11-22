@@ -76,7 +76,7 @@ export declare class DungeonView {
     drawStatus(): void;
     drawDark(): void;
     drawStairsScreen(): void;
-    animateWalking(nextFunction: () => void): void;
+    animateWalking(direction: DIRECTION, nextFunction: () => void): void;
     preRenderAll(): void;
     preRenderCell(x: number, y: number): void;
     enqueueMessage(text: string, audio?: HTMLAudioElement | null, delay?: number, bgmStop?: boolean): void;
