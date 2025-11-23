@@ -2,7 +2,7 @@
 // キャンバス・表示画面
 //=============================================================================
 
-// 1セルのサイズ
+// 1セルのサイズ (幅、高さ共通)
 export const CELL_PX  = 32;
 export const CHARA_PX = 44;
 
@@ -83,16 +83,14 @@ export type Se = Readonly<{
 }>;
 
 //=============================================================================
-// ダンジョンデータ
+// ダンジョンのエクセルデータ / 受取用の型
 //=============================================================================
 
 /**
- * 階段の行先配列
+ * 階段の行先データ
  */
-export type Stairs = [floorNum: number, x: number, y: number];
-
-// 階段の行先座標リスト
-export const STAIRS_LIST: Stairs[] = [
+export type StairsExcelData = Readonly<[floorNum: number, x: number, y: number]>;
+export const STAIRS_LIST = [
     [1, 15, 2 ],
     [0, 13, 15],
     [2, 16, 2 ],
@@ -102,9 +100,11 @@ export const STAIRS_LIST: Stairs[] = [
 ] as const;
 
 
-// 全階層
-type floor = number[][];
-export const DUNGEON_EXCEL_DATA: [floor,floor,floor] = [
+/**
+ * 階層マップデータ (2次元配列)
+ */
+export type FloorExcelData = readonly(readonly number[])[];
+export const DUNGEON_EXCEL_DATA = [
 
     // 0階層
     [

@@ -14,7 +14,8 @@
 
 // 定数
 import {
-    CELL_PX, CANVAS, BG_CANVAS, DIRECTION, type Stairs, type Contexts, type Se
+    CELL_PX, CANVAS, BG_CANVAS, DIRECTION, 
+    type StairsExcelData, type FloorExcelData, type Contexts, type Se
 } from './constants.js';
 
 // クラス
@@ -140,14 +141,16 @@ export class Floor
 
 
     /**
-     * @param mapExcelData  エクセルで作成した階層データ
+     * @param mapExcelData  エクセルで作成した階層データ  number[][]
      * @param image         背景画像シート
      * @param bgm           BGM (ループ再生される)
      * @param enemyDesigns  敵の設計図リスト
      */
     constructor(
-        mapExcelData: Readonly<number[][]>, image: HTMLImageElement, bgm: Bgm,
-        enemyDesigns: Readonly<EnemyDesign[]>
+        mapExcelData : FloorExcelData,
+        image        : HTMLImageElement,
+        bgm          : Bgm,
+        enemyDesigns : readonly EnemyDesign[] 
     ) {
         // エクセルデータ → Cell[][]
         const cells =
@@ -267,7 +270,7 @@ export class DungeonModel
 
     // 全階層分のデータ
     readonly floors     : Floor[];
-    readonly stairsList : Stairs[];
+    readonly stairsList : readonly StairsExcelData[];
     completeCount = 0;   // クリアした階層数
 
     // 現階層データ
@@ -287,7 +290,7 @@ export class DungeonModel
      */
     constructor(
         chara: MainChara, items: Item[], enemyDesigns: EnemyDesign[],
-        floors: Floor[], stairsList: Stairs[])
+        floors: Floor[], stairsList: readonly StairsExcelData[])
     {
         this.chara        = chara;
         this.items        = items;
@@ -1218,6 +1221,7 @@ export class DungeonScreen
             model.mappingAll();
             view.preRenderAll();
             view.drawFloor();
+            view.drawMap();
 
             await view.floorCompleteEvent();
             view.drawAll();

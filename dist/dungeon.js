@@ -603,6 +603,7 @@ export class DungeonScreen {
                 model.mappingAll();
                 view.preRenderAll();
                 view.drawFloor();
+                view.drawMap();
                 yield view.floorCompleteEvent();
                 view.drawAll();
                 if (model.isGameCompleted()) {

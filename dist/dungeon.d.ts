@@ -1,4 +1,4 @@
-import { DIRECTION, type Stairs, type Contexts, type Se } from './constants.js';
+import { DIRECTION, type StairsExcelData, type FloorExcelData, type Contexts, type Se } from './constants.js';
 import { Rect, Bgm, Point, Input } from './utility.js';
 import { Item, MainChara, EnemyDesign, Enemy } from './character.js';
 declare enum EVENT {
@@ -26,7 +26,7 @@ export declare class Floor {
     mappingMax: number;
     mappingCount: number;
     mappingRate: number;
-    constructor(mapExcelData: Readonly<number[][]>, image: HTMLImageElement, bgm: Bgm, enemyDesigns: Readonly<EnemyDesign[]>);
+    constructor(mapExcelData: FloorExcelData, image: HTMLImageElement, bgm: Bgm, enemyDesigns: readonly EnemyDesign[]);
     moveEnemy(enemy: Enemy, x: number, y: number): void;
     deleteEnemy(x: number, y: number): Enemy;
     updateMappingRate(): boolean;
@@ -36,13 +36,13 @@ export declare class DungeonModel {
     readonly items: Item[];
     readonly enemyDesigns: EnemyDesign[];
     readonly floors: Floor[];
-    readonly stairsList: Stairs[];
+    readonly stairsList: readonly StairsExcelData[];
     completeCount: number;
     floorNum: number;
     floor: Floor;
     cell: Cell;
     mappingPoints: Point[];
-    constructor(chara: MainChara, items: Item[], enemyDesigns: EnemyDesign[], floors: Floor[], stairsList: Stairs[]);
+    constructor(chara: MainChara, items: Item[], enemyDesigns: EnemyDesign[], floors: Floor[], stairsList: readonly StairsExcelData[]);
     setCharaCoordinate(floorNum: number, x: number, y: number): void;
     isGameCompleted(): boolean;
     mappingAll(cellEvent?: EVENT): void;
