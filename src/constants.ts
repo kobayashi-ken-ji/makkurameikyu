@@ -69,7 +69,7 @@ export type Contexts = Readonly<{
 /**
  * 効果音リスト
  */
-export type Se = Readonly<{
+export type SoundEffects = Readonly<{
     complete1 : HTMLAudioElement,   // 階層クリア
     complete2 : HTMLAudioElement,   // ゲームクリア
     stairs    : HTMLAudioElement,   // 階段移動

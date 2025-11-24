@@ -10,10 +10,10 @@
 // インポート
 //=============================================================================
 
-import {CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST, type Contexts, type Se}
+import {CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST, type Contexts, type SoundEffects}
 from './constants.js';
 
-import {Rect, Bgm, ImageLoader, Context2D, Input} from './utility.js';
+import {Rect, Sound, Bgm, ImageLoader, Context2D, Input} from './utility.js';
 import {Item, MainChara, EnemyDesign} from './character.js';
 import {Floor, DungeonModel, DungeonView, DungeonScreen} from './dungeon.js';
 
@@ -33,6 +33,11 @@ class Main
     readonly dungeonScreen : DungeonScreen;
 
     constructor() {
+
+        // 音量調整
+        Sound.InitialVolume = 0.3;
+        Bgm.InitialVolume   = 0.3;
+
         //---------------------------------------------------------------------
         // リソース読込
         //---------------------------------------------------------------------
@@ -53,17 +58,17 @@ class Main
         };
 
         // 効果音
-        const se: Se = {
-            complete1 : new Audio("sounds/se_fanfare1.wav"),    // 階層クリア
-            complete2 : new Audio("sounds/se_fanfare2.wav"),    // ゲームクリア
-            stairs    : new Audio("sounds/se_kaidan.wav"),      // 階段移動
-            openBox   : new Audio("sounds/se_takara.wav"),      // 宝箱
-            useItem   : new Audio("sounds/se_present.wav"),     // アイテムで敵を回避
-            crash     : new Audio("sounds/se_crash.wav"),       // 敵と衝突
-            select    : new Audio("sounds/se_select.wav"),      // 選択音 (メッセージ表示)
-            wall      : new Audio("sounds/se_pyokotto.wav"),    // 壁衝突音
-            gameover  : new Audio("sounds/se_gameover.wav"),    // ゲームオーバー
-            encount   : new Audio("sounds/se_encount.wav"),     // 遭遇
+        const se: SoundEffects = {
+            complete1 : new Sound("sounds/se_fanfare1.wav"),    // 階層クリア
+            complete2 : new Sound("sounds/se_fanfare2.wav"),    // ゲームクリア
+            stairs    : new Sound("sounds/se_kaidan.wav"),      // 階段移動
+            openBox   : new Sound("sounds/se_takara.wav"),      // 宝箱
+            useItem   : new Sound("sounds/se_present.wav"),     // アイテムで敵を回避
+            crash     : new Sound("sounds/se_crash.wav"),       // 敵と衝突
+            select    : new Sound("sounds/se_select.wav"),      // 選択音 (メッセージ表示)
+            wall      : new Sound("sounds/se_pyokotto.wav"),    // 壁衝突音
+            gameover  : new Sound("sounds/se_gameover.wav"),    // ゲームオーバー
+            encount   : new Sound("sounds/se_encount.wav"),     // 遭遇
         };
 
 

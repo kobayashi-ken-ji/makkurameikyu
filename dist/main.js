@@ -9,11 +9,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import { CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST } from './constants.js';
-import { Rect, Bgm, ImageLoader, Context2D, Input } from './utility.js';
+import { Rect, Sound, Bgm, ImageLoader, Context2D, Input } from './utility.js';
 import { Item, MainChara, EnemyDesign } from './character.js';
 import { Floor, DungeonModel, DungeonView, DungeonScreen } from './dungeon.js';
 class Main {
     constructor() {
+        Sound.InitialVolume = 0.3;
+        Bgm.InitialVolume = 0.3;
         const contexts = {
             ui: Context2D.get("g_canvas3"),
             dark: Context2D.get("g_canvas2"),
@@ -26,16 +28,16 @@ class Main {
             iceFloor: new Bgm("sounds/bgm137-zenjinmitou.mp3"),
         };
         const se = {
-            complete1: new Audio("sounds/se_fanfare1.wav"),
-            complete2: new Audio("sounds/se_fanfare2.wav"),
-            stairs: new Audio("sounds/se_kaidan.wav"),
-            openBox: new Audio("sounds/se_takara.wav"),
-            useItem: new Audio("sounds/se_present.wav"),
-            crash: new Audio("sounds/se_crash.wav"),
-            select: new Audio("sounds/se_select.wav"),
-            wall: new Audio("sounds/se_pyokotto.wav"),
-            gameover: new Audio("sounds/se_gameover.wav"),
-            encount: new Audio("sounds/se_encount.wav"),
+            complete1: new Sound("sounds/se_fanfare1.wav"),
+            complete2: new Sound("sounds/se_fanfare2.wav"),
+            stairs: new Sound("sounds/se_kaidan.wav"),
+            openBox: new Sound("sounds/se_takara.wav"),
+            useItem: new Sound("sounds/se_present.wav"),
+            crash: new Sound("sounds/se_crash.wav"),
+            select: new Sound("sounds/se_select.wav"),
+            wall: new Sound("sounds/se_pyokotto.wav"),
+            gameover: new Sound("sounds/se_gameover.wav"),
+            encount: new Sound("sounds/se_encount.wav"),
         };
         const images = {
             mainChara: ImageLoader.load("images/char_44px.png"),

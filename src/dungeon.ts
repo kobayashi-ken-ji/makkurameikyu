@@ -15,7 +15,7 @@
 // 定数
 import {
     CELL_PX, CANVAS, BG_CANVAS, DIRECTION, 
-    type StairsExcelData, type FloorExcelData, type Contexts, type Se
+    type StairsExcelData, type FloorExcelData, type Contexts, type SoundEffects
 } from './constants.js';
 
 // クラス
@@ -612,7 +612,7 @@ export class DungeonView
         public readonly model    : DungeonModel,
         public readonly input    : Input,
         public readonly contexts : Contexts,
-        public readonly se       : Se
+        public readonly se       : SoundEffects
     ) {}
 
     //-------------------------------------------------------------------------

@@ -25,8 +25,12 @@ export declare class Triangle {
     contains(x: number, y: number): boolean;
     private getVectorProduct;
 }
+export declare class Sound extends Audio {
+    static InitialVolume: number;
+    constructor(filePath: string);
+}
 export declare class Bgm extends Audio {
-    static isNotPlay: boolean;
+    static InitialVolume: number;
     private static playingBGM;
     constructor(filePath: string);
     static stop(): void;

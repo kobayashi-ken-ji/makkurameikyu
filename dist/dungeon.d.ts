@@ -1,4 +1,4 @@
-import { DIRECTION, type StairsExcelData, type FloorExcelData, type Contexts, type Se } from './constants.js';
+import { DIRECTION, type StairsExcelData, type FloorExcelData, type Contexts, type SoundEffects } from './constants.js';
 import { Rect, Bgm, Point, Input } from './utility.js';
 import { Item, MainChara, EnemyDesign, Enemy } from './character.js';
 declare enum EVENT {
@@ -58,7 +58,7 @@ export declare class DungeonView {
     readonly model: DungeonModel;
     readonly input: Input;
     readonly contexts: Contexts;
-    readonly se: Se;
+    readonly se: SoundEffects;
     readonly rects: {
         readonly status: Rect;
         readonly items: Rect;
@@ -68,7 +68,7 @@ export declare class DungeonView {
         readonly left: Rect;
         readonly right: Rect;
     };
-    constructor(model: DungeonModel, input: Input, contexts: Contexts, se: Se);
+    constructor(model: DungeonModel, input: Input, contexts: Contexts, se: SoundEffects);
     drawAll(): void;
     drawFloor(shiftPx?: number): void;
     drawMap(): void;

@@ -23,7 +23,7 @@ export type Contexts = Readonly<{
     bg: CanvasRenderingContext2D;
     preRender: CanvasRenderingContext2D;
 }>;
-export type Se = Readonly<{
+export type SoundEffects = Readonly<{
     complete1: HTMLAudioElement;
     complete2: HTMLAudioElement;
     stairs: HTMLAudioElement;

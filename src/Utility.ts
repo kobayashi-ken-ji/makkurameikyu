@@ -235,14 +235,29 @@ export class Triangle
 }
 
 //=============================================================================
+// SEクラス
+//=============================================================================
+
+export class Sound extends Audio
+{
+    // インスタンス生成時の音量
+    static InitialVolume = 0.5;
+
+    constructor(filePath: string) {
+        super(filePath);
+        this.volume = Sound.InitialVolume;
+    }
+}
+
+//=============================================================================
 // BGMクラス
 //      - Audioクラスを継承し、排他再生・ループ再生 を標準化
 //=============================================================================
 
 export class Bgm extends Audio
 {
-    // BGMを再生しない
-    static isNotPlay = false;
+    // インスタンス生成時の音量
+    static InitialVolume = 0.5;
 
     // 再生中のBGM
     private static playingBGM: Bgm | null;
@@ -251,6 +266,7 @@ export class Bgm extends Audio
     constructor(filePath: string) {
         super(filePath);
         this.loop = true;
+        this.volume = Bgm.InitialVolume;
     }
 
     /**
@@ -267,9 +283,7 @@ export class Bgm extends Audio
     /**
      * BGMの排他再生
      */
-    play(): Promise<void>
-    {
-        if (Bgm.isNotPlay) return new Promise(()=>{});
+    play(): Promise<void> {
         Bgm.stop();
         Bgm.playingBGM = this;
         return super.play();

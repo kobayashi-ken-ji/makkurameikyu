@@ -97,10 +97,18 @@ export class Triangle {
         return (pbX * abY) - (pbY * abX);
     }
 }
+export class Sound extends Audio {
+    constructor(filePath) {
+        super(filePath);
+        this.volume = Sound.InitialVolume;
+    }
+}
+Sound.InitialVolume = 0.5;
 export class Bgm extends Audio {
     constructor(filePath) {
         super(filePath);
         this.loop = true;
+        this.volume = Bgm.InitialVolume;
     }
     static stop() {
         if (Bgm.playingBGM) {
@@ -110,14 +118,12 @@ export class Bgm extends Audio {
         }
     }
     play() {
-        if (Bgm.isNotPlay)
-            return new Promise(() => { });
         Bgm.stop();
         Bgm.playingBGM = this;
         return super.play();
     }
 }
-Bgm.isNotPlay = false;
+Bgm.InitialVolume = 0.5;
 export class ImageLoader {
     static load(filePath) {
         let image = new Image();
