@@ -1,4 +1,4 @@
-import { CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, DIRECTION } from './constants.js';
+import { CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, Direction } from './constants.js';
 export class Item {
     constructor(quantity, name) {
         this.quantity = quantity;
@@ -16,7 +16,7 @@ class Walker {
         this.image = image;
         this.chipSize = chipSize;
         this.setXY(x, y);
-        this.direction = DIRECTION.DOWN;
+        this.direction = Direction.DOWN;
         this.i = 0;
     }
     setXY(x, y) {
@@ -29,10 +29,10 @@ class Walker {
         this.pxX = x * CELL_PX;
         this.pxY = y * CELL_PX;
         this.direction =
-            (this.moveY < 0) ? DIRECTION.UP :
-                (this.moveY > 0) ? DIRECTION.DOWN :
-                    (this.moveX < 0) ? DIRECTION.LEFT :
-                        (this.moveX > 0) ? DIRECTION.RIGHT :
+            (this.moveY < 0) ? Direction.UP :
+                (this.moveY > 0) ? Direction.DOWN :
+                    (this.moveX < 0) ? Direction.LEFT :
+                        (this.moveX > 0) ? Direction.RIGHT :
                             this.direction;
     }
     nextPattern() {
@@ -63,19 +63,19 @@ export class MainChara extends Walker {
         super.draw(context, this.screenX, this.screenY);
     }
 }
-export var ENEMY_RESULT;
-(function (ENEMY_RESULT) {
-    ENEMY_RESULT[ENEMY_RESULT["UNENCOUNTERED"] = 10] = "UNENCOUNTERED";
-    ENEMY_RESULT[ENEMY_RESULT["DODGED"] = 11] = "DODGED";
-    ENEMY_RESULT[ENEMY_RESULT["CRASHED"] = 12] = "CRASHED";
-    ENEMY_RESULT[ENEMY_RESULT["GAMEOVER"] = 13] = "GAMEOVER";
-})(ENEMY_RESULT || (ENEMY_RESULT = {}));
+export var EnemyResult;
+(function (EnemyResult) {
+    EnemyResult[EnemyResult["UNENCOUNTERED"] = 0] = "UNENCOUNTERED";
+    EnemyResult[EnemyResult["DODGED"] = 1] = "DODGED";
+    EnemyResult[EnemyResult["CRASHED"] = 2] = "CRASHED";
+    EnemyResult[EnemyResult["GAMEOVER"] = 3] = "GAMEOVER";
+})(EnemyResult || (EnemyResult = {}));
 ;
 export class Enemy extends Walker {
     constructor(design, x, y) {
         super(design.image, CELL_PX, x, y);
         this.design = design;
-        this.result = ENEMY_RESULT.UNENCOUNTERED;
+        this.result = EnemyResult.UNENCOUNTERED;
     }
 }
 export class EnemyDesign {

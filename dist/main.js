@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import { CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST } from './constants.js';
-import { Rect, Sound, Bgm, ImageLoader, Context2D, Input } from './utility.js';
+import { Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue } from './utility.js';
 import { Item, MainChara, EnemyDesign } from './character.js';
 import { Floor, DungeonModel, DungeonView, DungeonScreen } from './dungeon.js';
 class Main {
@@ -98,10 +98,10 @@ class StartScreen {
         this.nextFunction = () => { };
     }
     show() {
-        const input = this.input;
-        input.enqueue(() => this.draw(), 0);
-        input.enqueue(this.nextFunction, 0);
-        input.runQueue();
+        const queue = new OnInputQueue(this.input);
+        queue.push(() => this.draw(), 0);
+        queue.push(this.nextFunction, 0);
+        queue.run();
     }
     draw() {
         const context = this.context;

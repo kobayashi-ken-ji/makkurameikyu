@@ -357,7 +357,7 @@ export class Context2D
     /**
      * 仮想キャンバスを作成, コンテキストを取得
      */
-    static createVirtual(w: number, h :number): CanvasRenderingContext2D {
+    static createVirtual(w: number, h: number): CanvasRenderingContext2D {
 
         // getImageData() 高頻度用設定
         const Frequently = {willReadFrequently : true};
@@ -380,21 +380,25 @@ export class Context2D
 //      - 入力時の処理を管理
 //=============================================================================
 
-type DelayFn = {
-    onInput : ()=>void,     // 入力時に実行する関数
-    delay   : number        // 関数終了後、次の入力受付を開始するまでの時間
-};
-
 export class Input
 {
-    // 入力された値
-    x: number = -1;             // クリック、タッチが離されたら -1
-    y: number = -1;
-    key: string | null = null;  // キーボード入力 / 離されたらnull
+    // クリック、タッチ、キーボード の入力値 (初期値は離されている状態)
+    private x   : number = -1;
+    private y   : number = -1;
+    private key : string = "";
 
-    // 内部用変数
-    private onInput: ()=>void  = ()=>{};  // 入力時の処理を設定
-    private queue  : DelayFn[] = [];      // 関数のキュー
+    // 入力時に実行する処理
+    private onInput : ()=>void  = ()=>{};
+
+
+    // 入力された値を取得
+    getState() {
+        return {
+            x   : this.x, 
+            y   : this.y,
+            key : this.key,
+        };
+    }
 
     //-------------------------------------------------------------------------
     // 入力待機
@@ -404,7 +408,7 @@ export class Input
      * 入力受付状態へ移行
      * @param onInput  入力されたときに実行する処理
      */
-    standby(onInput: ()=>{}) {
+    standby(onInput: ()=>void) {
         this.onInput = onInput;
     }
 
@@ -436,8 +440,7 @@ export class Input
         //-------------------------------------------
 
         const mouseDown = (event: MouseEvent)=>{
-            // this.x   = event.offsetX;
-            // this.y   = event.offsetY;
+
             const rect = element.getBoundingClientRect();
             this.x     = event.pageX - rect.left;
             this.y     = event.pageY - rect.top;
@@ -446,7 +449,7 @@ export class Input
         };
 
         const mouseUp = (event: MouseEvent)=>{
-            this.key = null;
+            this.key = "";
         };
 
         //-------------------------------------------
@@ -463,7 +466,7 @@ export class Input
         // 最新のキーが離された場合のみ
         const keyUp = (event: KeyboardEvent)=>{
             if (this.key == event.key)
-                this.key = null;
+                this.key = "";
         };
 
         //-------------------------------------------
@@ -485,19 +488,15 @@ export class Input
 
         
         const touchEnd = (event: TouchEvent)=>{
-            this.key = null;
+            this.key = "";
         };
 
         //-------------------------------------------
         // クリックリスナーを設定
         //-------------------------------------------
 
-        // タッチできるデバイスかどうか (true or undefined)
+        // タッチできるデバイスかどうか
         const isTouchDevice = window.matchMedia('(hover: none)').matches;
-        // (
-        //     ("ontouchstart" in window) ||
-        //     (window.DocumentTouch  &&  document instanceof DocumentTouch)
-        // );
 
         if (isTouchDevice) {
             document.addEventListener("touchstart", touchStart, false);
@@ -509,22 +508,33 @@ export class Input
             document.addEventListener("keyup"     , keyUp     , false);
         }
     }
+}
 
-    //-------------------------------------------------------------------------
-    //  キュー
-    //      処理を登録し、入力ごとに順次実行する
-    //      クリックで、テキストページ送り などで使用
-    //-------------------------------------------------------------------------
+//=============================================================================
+// 入力時の処理をキュー化
+//      複数処理を登録し、入力されるごとに順次実行する
+//      クリックでのメッセージ送り などに使用
+//=============================================================================
+
+export class OnInputQueue
+{
+    private onInputs : (()=>void)[] = [];
+    private delays   : number[]     = [];
+    private input    : Input;
+
+    constructor(input: Input) {
+        this.input = input;
+    }
+
 
     /**
      * 処理を登録
      * @param onInput   入力時に実行する関数
      * @param delay     関数終了後、次の入力受付を開始するまでの時間 [ミリ秒/省略可]
      */
-    enqueue(onInput: ()=>void, delay = 400) {
-        
-        const queue: DelayFn = {onInput, delay};
-        this.queue.push(queue);
+    push(onInput: ()=>void, delay = 400) {
+        this.onInputs.push(onInput);
+        this.delays.push(delay);
     }
 
 
@@ -532,24 +542,18 @@ export class Input
      * キューを全て実行
      * (最初の処理は、クリックなしで即時実行)
      */
-    runQueue() {
-
-        this.stop();
-
-        // 最後の要素か否か
-        //  実行関数内でエンキューされると増えてしまうため、実行前にチェック
-        const isLast = (this.queue.length == 1);
-
-        // デキューして実行
-        const delayFn = this.queue.shift();
-        if (!delayFn) return;
-        const {onInput, delay} = delayFn;
+    run() {
+        // デキューし、処理実行
+        const onInput = this.onInputs.shift();
+        const delay   = this.delays.shift();
+        if (onInput == undefined || delay == undefined) return;
         onInput();
 
         // 次の処理をセット
-        if (!isLast) {
-            const run = ()=>{this.runQueue()};
-            setTimeout(()=>{this.onInput = run}, delay);
+        if (this.onInputs.length > 0) {
+            const run     = () => this.run();
+            const standby = () => this.input.standby(run);
+            setTimeout(standby, delay);
         }
     }
 }

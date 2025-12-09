@@ -13,7 +13,7 @@
 import {CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST, type Contexts, type SoundEffects}
 from './constants.js';
 
-import {Rect, Sound, Bgm, ImageLoader, Context2D, Input} from './utility.js';
+import {Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue} from './utility.js';
 import {Item, MainChara, EnemyDesign} from './character.js';
 import {Floor, DungeonModel, DungeonView, DungeonScreen} from './dungeon.js';
 
@@ -89,11 +89,11 @@ class Main
         //---------------------------------------------------------------------
 
         // アイテム配列
-        const items: [Item, Item, Item] = [
+        const items = [
             new Item(0, "ヘルメット"),
             new Item(0, "キャンディ"),
             new Item(0, "たいまつ"),
-        ];
+        ] as const;
 
         // 敵データ
         const enemyDesigns = [
@@ -208,10 +208,10 @@ class StartScreen
 
     // 画面を表示、クリックされたら次の画面へ
     show() {
-        const input = this.input;
-        input.enqueue(()=>this.draw(), 0);
-        input.enqueue(this.nextFunction, 0);
-        input.runQueue();
+        const queue = new OnInputQueue(this.input);
+        queue.push(()=>this.draw(), 0);
+        queue.push(this.nextFunction, 0);
+        queue.run();
     }
     
     // 画面を描画

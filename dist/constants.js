@@ -9,15 +9,17 @@ export const CANVAS = {
 export const BG_CANVAS = {
     W: (32 * CELL_PX) + CANVAS.W,
     H: (32 * CELL_PX) + CANVAS.H,
+    LEFT_MARGIN: CANVAS.CHARA_X,
+    TOP_MARGIN: CANVAS.CHARA_Y,
 };
 export const WALK_PATTERN = [1, 0, 1, 2];
-export var DIRECTION;
-(function (DIRECTION) {
-    DIRECTION[DIRECTION["UP"] = 0] = "UP";
-    DIRECTION[DIRECTION["RIGHT"] = 1] = "RIGHT";
-    DIRECTION[DIRECTION["DOWN"] = 2] = "DOWN";
-    DIRECTION[DIRECTION["LEFT"] = 3] = "LEFT";
-})(DIRECTION || (DIRECTION = {}));
+export var Direction;
+(function (Direction) {
+    Direction[Direction["UP"] = 0] = "UP";
+    Direction[Direction["RIGHT"] = 1] = "RIGHT";
+    Direction[Direction["DOWN"] = 2] = "DOWN";
+    Direction[Direction["LEFT"] = 3] = "LEFT";
+})(Direction || (Direction = {}));
 export const STAIRS_LIST = [
     [1, 15, 2],
     [0, 13, 15],

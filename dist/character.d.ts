@@ -1,4 +1,4 @@
-import { DIRECTION } from './constants.js';
+import { Direction } from './constants.js';
 export declare class Item {
     quantity: number;
     name: string;
@@ -11,7 +11,7 @@ declare class Walker {
     moveY: number;
     pxX: number;
     pxY: number;
-    direction: DIRECTION;
+    direction: Direction;
     private readonly image;
     private readonly chipSize;
     private i;
@@ -31,15 +31,15 @@ export declare class MainChara extends Walker {
     constructor(image: HTMLImageElement, hpMax: number);
     draw(context: CanvasRenderingContext2D): void;
 }
-export declare enum ENEMY_RESULT {
-    UNENCOUNTERED = 10,
-    DODGED = 11,
-    CRASHED = 12,
-    GAMEOVER = 13
+export declare enum EnemyResult {
+    UNENCOUNTERED = 0,
+    DODGED = 1,
+    CRASHED = 2,
+    GAMEOVER = 3
 }
 export declare class Enemy extends Walker {
     readonly design: EnemyDesign;
-    result: ENEMY_RESULT;
+    result: EnemyResult;
     constructor(design: EnemyDesign, x: number, y: number);
 }
 export declare class EnemyDesign {

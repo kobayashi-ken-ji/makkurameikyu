@@ -163,6 +163,13 @@ export class Context2D {
     }
 }
 export class Input {
+    getState() {
+        return {
+            x: this.x,
+            y: this.y,
+            key: this.key,
+        };
+    }
     standby(onInput) {
         this.onInput = onInput;
     }
@@ -172,9 +179,8 @@ export class Input {
     constructor(element) {
         this.x = -1;
         this.y = -1;
-        this.key = null;
+        this.key = "";
         this.onInput = () => { };
-        this.queue = [];
         const run = () => {
             const fn = this.onInput;
             this.onInput = () => { };
@@ -188,7 +194,7 @@ export class Input {
             run();
         };
         const mouseUp = (event) => {
-            this.key = null;
+            this.key = "";
         };
         const keyDown = (event) => {
             this.x = -1;
@@ -198,7 +204,7 @@ export class Input {
         };
         const keyUp = (event) => {
             if (this.key == event.key)
-                this.key = null;
+                this.key = "";
         };
         const touchStart = (event) => {
             const touch = event.changedTouches[0];
@@ -213,7 +219,7 @@ export class Input {
             run();
         };
         const touchEnd = (event) => {
-            this.key = null;
+            this.key = "";
         };
         const isTouchDevice = window.matchMedia('(hover: none)').matches;
         if (isTouchDevice) {
@@ -227,21 +233,27 @@ export class Input {
             document.addEventListener("keyup", keyUp, false);
         }
     }
-    enqueue(onInput, delay = 400) {
-        const queue = { onInput, delay };
-        this.queue.push(queue);
+}
+export class OnInputQueue {
+    constructor(input) {
+        this.onInputs = [];
+        this.delays = [];
+        this.input = input;
     }
-    runQueue() {
-        this.stop();
-        const isLast = (this.queue.length == 1);
-        const delayFn = this.queue.shift();
-        if (!delayFn)
+    push(onInput, delay = 400) {
+        this.onInputs.push(onInput);
+        this.delays.push(delay);
+    }
+    run() {
+        const onInput = this.onInputs.shift();
+        const delay = this.delays.shift();
+        if (onInput == undefined || delay == undefined)
             return;
-        const { onInput, delay } = delayFn;
         onInput();
-        if (!isLast) {
-            const run = () => { this.runQueue(); };
-            setTimeout(() => { this.onInput = run; }, delay);
+        if (this.onInputs.length > 0) {
+            const run = () => this.run();
+            const standby = () => this.input.standby(run);
+            setTimeout(standby, delay);
         }
     }
 }

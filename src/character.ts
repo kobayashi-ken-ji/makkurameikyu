@@ -9,7 +9,7 @@
 // インポート
 //=============================================================================
 
-import {CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, DIRECTION} from './constants.js';
+import {CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, Direction} from './constants.js';
 
 //=============================================================================
 // アイテム情報
@@ -46,7 +46,7 @@ class Walker
     pxY   = 0;
 
     // 向き
-    direction: DIRECTION;
+    direction: Direction;
 
     // 画像シート, 画像チップの幅、歩行パターンインデックス
     private readonly image    : HTMLImageElement;
@@ -60,7 +60,7 @@ class Walker
         this.setXY(x, y);
 
         // 初期は下向き & 棒立ち
-        this.direction = DIRECTION.DOWN;
+        this.direction = Direction.DOWN;
         this.i = 0;
     }
     
@@ -68,8 +68,8 @@ class Walker
     // 座標を移動
     setXY(x: number, y: number) {
 
-        const lastX  = this.x;
-        const lastY  = this.y;
+        const lastX = this.x;
+        const lastY = this.y;
         this.x      = x;
         this.y      = y;
         this.moveX  = x - lastX;
@@ -78,10 +78,10 @@ class Walker
         this.pxY    = y * CELL_PX;
 
         this.direction = 
-            (this.moveY < 0)  ? DIRECTION.UP    :
-            (this.moveY > 0)  ? DIRECTION.DOWN  :
-            (this.moveX < 0)  ? DIRECTION.LEFT  :
-            (this.moveX > 0)  ? DIRECTION.RIGHT :
+            (this.moveY < 0)  ? Direction.UP    :
+            (this.moveY > 0)  ? Direction.DOWN  :
+            (this.moveX < 0)  ? Direction.LEFT  :
+            (this.moveX > 0)  ? Direction.RIGHT :
             this.direction;     // 移動なし → 方角もそのまま
     }
 
@@ -100,8 +100,7 @@ class Walker
      * @param left      描画座標X
      * @param top       描画座標Y
      */
-    draw(context: CanvasRenderingContext2D, left: number, top: number)
-    {
+    draw(context: CanvasRenderingContext2D, left: number, top: number) {
         const {chipSize, i, direction, image} = this;
 
         // チップ取得座標
@@ -134,8 +133,8 @@ export class MainChara extends Walker
     // 画面上のキャラ描画座標 (px)
     // 主人公のみ、画像サイズが異なる
     private readonly diff    = CHARA_PX - CELL_PX;
-    private readonly screenX = CANVAS.CHARA_X  - (this.diff / 2);
-    private readonly screenY = CANVAS.CHARA_Y  - this.diff;
+    private readonly screenX = CANVAS.CHARA_X - (this.diff / 2);
+    private readonly screenY = CANVAS.CHARA_Y - this.diff;
 
 
     /**
@@ -167,23 +166,23 @@ export class MainChara extends Walker
 /**
  * 敵との遭遇イベントの処理結果
  */
-export enum ENEMY_RESULT {
-    UNENCOUNTERED = 10,     // 未遭遇
-    DODGED        = 11,     // 回避
-    CRASHED       = 12,     // 衝突
-    GAMEOVER      = 13,     // 衝突後、キャラのHPが0
+export enum EnemyResult {
+    UNENCOUNTERED,  // 未遭遇
+    DODGED,         // 回避
+    CRASHED,        // 衝突
+    GAMEOVER,       // 衝突後、キャラのHPが0
 };
 
 export class Enemy extends Walker
 {
     readonly design;
-    result: ENEMY_RESULT;
+    result: EnemyResult;
 
     constructor(design: EnemyDesign, x: number, y: number) {
 
         super(design.image, CELL_PX, x, y);
         this.design = design;
-        this.result = ENEMY_RESULT.UNENCOUNTERED;
+        this.result = EnemyResult.UNENCOUNTERED;
     }
 }
 

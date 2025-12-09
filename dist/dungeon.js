@@ -7,30 +7,23 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { CELL_PX, CANVAS, BG_CANVAS, DIRECTION } from './constants.js';
-import { Rect, Bgm, Point, Triangle, Input } from './utility.js';
-import { Item, MainChara, EnemyDesign, Enemy, ENEMY_RESULT } from './character.js';
-const INVISIBLE_CELL_COLOR = "black";
-var EVENT;
-(function (EVENT) {
-    EVENT[EVENT["NONE"] = 1] = "NONE";
-    EVENT[EVENT["WALL"] = 2] = "WALL";
-    EVENT[EVENT["STAIRS"] = 3] = "STAIRS";
-    EVENT[EVENT["BOX"] = 4] = "BOX";
-    EVENT[EVENT["ENEMY"] = 9] = "ENEMY";
-})(EVENT || (EVENT = {}));
-var WALL;
-(function (WALL) {
-    WALL[WALL["NORMAL"] = 0] = "NORMAL";
-    WALL[WALL["MAPPING_TOP"] = 1] = "MAPPING_TOP";
-})(WALL || (WALL = {}));
+import { CELL_PX, CANVAS, BG_CANVAS, Direction } from './constants.js';
+import { Rect, Bgm, Point, Triangle, Input, OnInputQueue } from './utility.js';
+import { Item, MainChara, EnemyDesign, Enemy, EnemyResult } from './character.js';
+var Event;
+(function (Event) {
+    Event[Event["NONE"] = 1] = "NONE";
+    Event[Event["WALL"] = 2] = "WALL";
+    Event[Event["STAIRS"] = 3] = "STAIRS";
+    Event[Event["TREASURE"] = 4] = "TREASURE";
+    Event[Event["ENEMY"] = 9] = "ENEMY";
+})(Event || (Event = {}));
+var Wall;
+(function (Wall) {
+    Wall[Wall["NORMAL"] = 0] = "NORMAL";
+    Wall[Wall["MAPPING_TOP"] = 1] = "MAPPING_TOP";
+})(Wall || (Wall = {}));
 ;
-class CoordinateError extends Error {
-    constructor(x, y) {
-        const message = `cellsの範囲外です  x:${x}, y:${y}`;
-        super(message);
-    }
-}
 export class Cell {
     constructor(excelData) {
         const arr = excelData.toString().split("");
@@ -38,14 +31,10 @@ export class Cell {
         this.param = Number(arr[1]);
         this.chipX = Number(arr[2]) * CELL_PX;
         this.chipY = Number(arr[3]) * CELL_PX;
-        this.visible = false;
+        this.mapped = false;
     }
-    getEnemyNum() {
-        const existsEnemy = (this.event == EVENT.ENEMY);
-        return existsEnemy ? this.param : -1;
-    }
-    openBox() {
-        this.event = EVENT.NONE;
+    deleteEvent() {
+        this.event = Event.NONE;
         this.chipX = 0;
         this.chipY = 5 * CELL_PX;
         return this.param;
@@ -56,47 +45,46 @@ export class Floor {
         this.mappingMax = 0;
         this.mappingCount = 0;
         this.mappingRate = 0;
+        this.mappingPoints = [];
         const cells = mapExcelData.map(line => line.map(num => new Cell(num)));
-        this.cells = cells;
         this.image = image;
         this.bgm = bgm;
+        this.cells = cells;
         this.enemies = [];
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
                 const cell = cells[y][x];
-                const enemyNum = cell.getEnemyNum();
-                if (enemyNum != -1) {
-                    const design = enemyDesigns[enemyNum];
+                if (cell.event == Event.ENEMY) {
+                    const design = enemyDesigns[cell.param];
                     if (!design)
-                        throw Error("enemyNum が不適切です : " + enemyNum);
+                        throw Error("敵インデックスが不適切です : " + cell.param);
                     const enemy = design.generate(x, y);
                     this.enemies.push(enemy);
                 }
-                if (cell.event != EVENT.WALL)
+                if (cell.event != Event.WALL)
                     this.mappingMax++;
             }
         }
     }
+    getCell(x, y) {
+        var _a;
+        const cell = (_a = this.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
+        if (!cell)
+            throw new Error(`cellsの範囲外です  x:${x}, y:${y}`);
+        return cell;
+    }
     moveEnemy(enemy, x, y) {
-        var _a, _b;
-        const from = (_a = this.cells[enemy.y]) === null || _a === void 0 ? void 0 : _a[enemy.x];
-        const to = (_b = this.cells[y]) === null || _b === void 0 ? void 0 : _b[x];
-        if (!from)
-            throw new CoordinateError(enemy.x, enemy.y);
-        if (!to)
-            throw new CoordinateError(x, y);
+        const from = this.getCell(enemy.x, enemy.y);
+        const to = this.getCell(x, y);
         enemy.setXY(x, y);
-        from.event = EVENT.NONE;
-        to.event = EVENT.ENEMY;
+        from.event = Event.NONE;
+        to.event = Event.ENEMY;
         to.param = from.param;
     }
     deleteEnemy(x, y) {
-        var _a;
         const enemies = this.enemies;
-        const cell = (_a = this.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
-        if (!cell)
-            throw new CoordinateError(x, y);
-        cell.event = EVENT.NONE;
+        const cell = this.getCell(x, y);
+        cell.event = Event.NONE;
         for (let i = 0; i < enemies.length; ++i) {
             const enemy = enemies[i];
             if (enemy.x == x && enemy.y == y) {
@@ -113,41 +101,8 @@ export class Floor {
         const isCompleted = (this.mappingRate === 100);
         return isCompleted;
     }
-}
-export class DungeonModel {
-    constructor(chara, items, enemyDesigns, floors, stairsList) {
-        this.completeCount = 0;
-        this.floorNum = 0;
-        this.mappingPoints = [];
-        this.chara = chara;
-        this.items = items;
-        this.enemyDesigns = enemyDesigns;
-        this.floors = floors;
-        this.stairsList = stairsList;
-        const floor = this.floors[0];
-        if (!floor)
-            throw new Error("floorsの要素数が0です");
-        this.floor = floor;
-        this.cell = this.floor.cells[0][0];
-    }
-    setCharaCoordinate(floorNum, x, y) {
-        const chara = this.chara;
-        chara.setXY(x, y);
-        chara.direction = DIRECTION.DOWN;
-        const floor = this.floors[floorNum];
-        if (!floor)
-            throw new Error("floorNum が不適切です : " + floorNum);
-        this.floorNum = floorNum;
-        this.floor = floor;
-        this.mappingCell(x, y);
-        this.mappingAround(x, y);
-        floor.updateMappingRate();
-    }
-    isGameCompleted() {
-        return (this.completeCount == this.floors.length);
-    }
     mappingAll(cellEvent) {
-        const cells = this.floor.cells;
+        const cells = this.cells;
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
                 if (cellEvent == undefined ||
@@ -157,62 +112,95 @@ export class DungeonModel {
         }
     }
     mappingCell(x, y, stop = false) {
-        var _a;
-        const floor = this.floor;
-        const cell = (_a = floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
-        if (!cell)
-            throw new CoordinateError(x, y);
-        if (!cell.visible) {
-            cell.visible = true;
+        const cell = this.getCell(x, y);
+        if (!cell.mapped) {
+            cell.mapped = true;
             this.mappingPoints.push(new Point(x, y));
-            if (cell.event != EVENT.WALL) {
-                floor.mappingCount++;
+            if (cell.event != Event.WALL) {
+                this.mappingCount++;
                 return;
             }
         }
         if (stop)
             return;
-        if (cell.event == EVENT.WALL &&
-            cell.param == WALL.MAPPING_TOP)
+        if (cell.event == Event.WALL &&
+            cell.param == Wall.MAPPING_TOP)
             this.mappingCell(x, y - 1, true);
     }
+    debugMappingAll(x, y) {
+        if (this.mappingRate == 100)
+            return;
+        this.mappingAll();
+        const cell = this.getCell(x, y);
+        cell.mapped = false;
+        this.mappingCount--;
+        this.updateMappingRate();
+    }
+}
+export class DungeonModel {
+    constructor(chara, items, enemyDesigns, floors, stairsList) {
+        this.chara = chara;
+        this.items = items;
+        this.enemyDesigns = enemyDesigns;
+        this.floors = floors;
+        this.stairsList = stairsList;
+        this.floorNum = 0;
+        this.floor = new Floor([[2000]], new Image(), new Bgm(""), []);
+        this.cell = new Cell(2000);
+        this.completeCount = 0;
+    }
+    setCharaCoordinate(floorNum, x, y) {
+        const chara = this.chara;
+        chara.setXY(x, y);
+        chara.direction = Direction.DOWN;
+        const floor = this.floors[floorNum];
+        if (!floor)
+            throw new Error("floorNum が不適切です : " + floorNum);
+        this.floorNum = floorNum;
+        this.floor = floor;
+        this.mappingAround(x, y);
+        floor.mappingCell(x, y);
+        floor.updateMappingRate();
+    }
+    incrementCompleteCount() {
+        this.completeCount++;
+        return (this.completeCount == this.floors.length);
+    }
     mappingAround(x, y) {
+        const floor = this.floor;
         const top = y - 1;
         const bottom = y + 1;
         const left = x - 1;
         const right = x + 1;
-        this.mappingCell(x, top);
-        this.mappingCell(x, bottom);
-        this.mappingCell(left, y);
-        this.mappingCell(right, y);
-        this.mappingCell(left, top);
-        this.mappingCell(right, top);
-        this.mappingCell(left, bottom);
-        this.mappingCell(right, bottom);
+        this.floor.mappingPoints = [];
+        floor.mappingCell(x, top);
+        floor.mappingCell(x, bottom);
+        floor.mappingCell(left, y);
+        floor.mappingCell(right, y);
+        floor.mappingCell(left, top);
+        floor.mappingCell(right, top);
+        floor.mappingCell(left, bottom);
+        floor.mappingCell(right, bottom);
     }
     walkChara(direction) {
-        var _a;
         const chara = this.chara;
+        chara.direction = direction;
         let x = chara.x;
         let y = chara.y;
-        chara.direction = direction;
-        if (direction == DIRECTION.UP)
+        if (direction == Direction.UP)
             y += -1;
-        else if (direction == DIRECTION.DOWN)
+        else if (direction == Direction.DOWN)
             y += 1;
-        else if (direction == DIRECTION.LEFT)
+        else if (direction == Direction.LEFT)
             x += -1;
-        else if (direction == DIRECTION.RIGHT)
+        else if (direction == Direction.RIGHT)
             x += 1;
-        const cell = (_a = this.floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
-        if (!cell)
-            throw new CoordinateError(x, y);
-        const isWall = (cell.event == EVENT.WALL);
-        this.mappingPoints = [];
+        const cell = this.floor.getCell(x, y);
+        const isWall = (cell.event == Event.WALL);
         if (!isWall) {
-            this.mappingAround(x, y);
             chara.setXY(x, y);
             chara.walkCount++;
+            this.mappingAround(x, y);
             this.cell = cell;
         }
         return isWall;
@@ -229,7 +217,7 @@ export class DungeonModel {
             new Point(x, y + 1),
             new Point(x - 1, y),
             new Point(x + 1, y),
-        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == EVENT.NONE); });
+        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == Event.NONE); });
         if (coords.length == 0) {
             floor.moveEnemy(enemy, x, y);
             return;
@@ -253,8 +241,8 @@ export class DungeonModel {
             floor.moveEnemy(enemy, x, y);
         }
     }
-    boxEvent() {
-        const itemNum = this.cell.openBox();
+    treasureEvent() {
+        const itemNum = this.cell.deleteEvent();
         const item = this.items[itemNum];
         if (!item)
             throw new Error("セルのアイテム番号が不適切です : " + itemNum);
@@ -276,13 +264,13 @@ export class DungeonModel {
         if (safeItem.quantity > 0) {
             safeItem.quantity--;
             chara.safeCount++;
-            enemy.result = ENEMY_RESULT.DODGED;
+            enemy.result = EnemyResult.DODGED;
         }
         else {
             chara.hp--;
             enemy.result = (chara.hp == 0)
-                ? ENEMY_RESULT.GAMEOVER
-                : ENEMY_RESULT.CRASHED;
+                ? EnemyResult.GAMEOVER
+                : EnemyResult.CRASHED;
         }
         return enemy;
     }
@@ -321,7 +309,7 @@ export class DungeonView {
         for (const enemy of floor.enemies) {
             const enemyX = enemy.pxX - (enemy.moveX * shiftPx);
             const enemyY = enemy.pxY - (enemy.moveY * shiftPx);
-            enemy.draw(contextBg, CANVAS.CHARA_X + enemyX - bgX, CANVAS.CHARA_Y + enemyY - bgY);
+            enemy.draw(contextBg, BG_CANVAS.LEFT_MARGIN + enemyX - bgX, BG_CANVAS.TOP_MARGIN + enemyY - bgY);
         }
         chara.draw(contextBg);
     }
@@ -337,13 +325,13 @@ export class DungeonView {
         context.clearRect(LEFT, TOP, WIDTH, WIDTH);
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
-                const { event, visible } = cells[y][x];
-                const color = (event === EVENT.ENEMY) ? "red" :
-                    (visible === false) ? null :
-                        (event === EVENT.WALL) ? "dimgray" :
-                            (event === EVENT.NONE) ? "white" :
-                                (event === EVENT.STAIRS) ? "lightgreen" :
-                                    (event === EVENT.BOX) ? "yellow" :
+                const { event, mapped } = cells[y][x];
+                const color = (event === Event.ENEMY) ? "red" :
+                    (mapped === false) ? null :
+                        (event === Event.WALL) ? "dimgray" :
+                            (event === Event.NONE) ? "white" :
+                                (event === Event.STAIRS) ? "lightgreen" :
+                                    (event === Event.TREASURE) ? "yellow" :
                                         null;
                 if (color === null)
                     continue;
@@ -410,19 +398,19 @@ export class DungeonView {
         context.textBaseline = "top";
         context.fillText(text, CANVAS.W / 3, CANVAS.H / 2);
     }
-    animateWalking(direction, nextFunction) {
+    animateWalking(nextFunction) {
         const self = this;
-        const { chara, floor, mappingPoints } = this.model;
+        const { chara, floor } = this.model;
         const ctxPre = this.contexts.preRender;
         chara.nextPattern();
         for (const enemy of floor.enemies)
             enemy.nextPattern();
-        const FRAME_LENGTH = 6;
+        const FRAME_LENGTH = 7;
         const INTERVAL = 28;
         const FRAME_PX = CELL_PX / FRAME_LENGTH;
         let i = FRAME_LENGTH;
-        const x = CANVAS.CHARA_X + chara.pxX - CELL_PX;
-        const y = CANVAS.CHARA_Y + chara.pxY - CELL_PX;
+        const x = BG_CANVAS.LEFT_MARGIN + chara.pxX - CELL_PX;
+        const y = BG_CANVAS.TOP_MARGIN + chara.pxY - CELL_PX;
         const w = CELL_PX * 3;
         const h = CELL_PX * 3;
         const isHorizontalMove = (chara.moveX != 0);
@@ -442,13 +430,14 @@ export class DungeonView {
                 path.rect((isHorizontalMove) ? x + shiftPx : x, (!isHorizontalMove) ? y + shiftPx : y, (isHorizontalMove) ? w - shiftPx * 2 : w, (!isHorizontalMove) ? h - shiftPx * 2 : h);
                 ctxPre.clip(path);
             }
-            for (const { x, y } of mappingPoints)
+            for (const { x, y } of floor.mappingPoints)
                 self.preRenderCell(x, y);
             ctxPre.restore();
             self.drawFloor(shiftPx);
         }
     }
     preRenderAll() {
+        const INVISIBLE_CELL_COLOR = "black";
         const context = this.contexts.preRender;
         const cells = this.model.floor.cells;
         context.fillStyle = INVISIBLE_CELL_COLOR;
@@ -460,21 +449,18 @@ export class DungeonView {
         }
     }
     preRenderCell(x, y) {
-        var _a;
         const context = this.contexts.preRender;
-        const { cells, image } = this.model.floor;
-        const left = CANVAS.CHARA_X + (x * CELL_PX);
-        const top = CANVAS.CHARA_Y + (y * CELL_PX);
-        const cell = (_a = cells[y]) === null || _a === void 0 ? void 0 : _a[x];
-        if (!cell)
-            throw new CoordinateError(x, y);
-        const { visible, chipX, chipY } = cell;
-        if (visible) {
-            context.drawImage(image, chipX, chipY, CELL_PX, CELL_PX, left, top, CELL_PX, CELL_PX);
+        const floor = this.model.floor;
+        const left = BG_CANVAS.LEFT_MARGIN + (x * CELL_PX);
+        const top = BG_CANVAS.TOP_MARGIN + (y * CELL_PX);
+        const cell = floor.getCell(x, y);
+        const { mapped, chipX, chipY } = cell;
+        if (mapped) {
+            context.drawImage(floor.image, chipX, chipY, CELL_PX, CELL_PX, left, top, CELL_PX, CELL_PX);
         }
     }
-    enqueueMessage(text, audio = null, delay = 400, bgmStop = false) {
-        this.input.enqueue(() => {
+    pushMessage(onInputQueue, text, audio = null, delay = 400, bgmStop = false) {
+        onInputQueue.push(() => {
             this.rects.message.draw(text, true);
             if (bgmStop)
                 Bgm.stop();
@@ -482,39 +468,46 @@ export class DungeonView {
                 audio.play();
         }, delay);
     }
+    wallEvent() {
+        this.se.wall.play();
+        this.drawFloor();
+    }
     floorCompleteEvent() {
         return new Promise(resolve => {
             const { input, se, model } = this;
+            const queue = new OnInputQueue(input);
             this.drawDark();
-            this.enqueueMessage("地下" + model.floorNum + "階の地図が完成した！", se.complete1, 1500);
-            input.enqueue(resolve);
-            input.runQueue();
+            this.pushMessage(queue, "地下" + model.floorNum + "階の地図が完成した！", se.complete1, 1500);
+            queue.push(resolve);
+            queue.run();
         });
     }
     gameCompleteEvent() {
         return new Promise(resolve => {
             const { input, se, rects } = this;
-            input.enqueue(() => {
+            const queue = new OnInputQueue(input);
+            queue.push(() => {
                 Bgm.stop();
                 se.complete2.play();
                 rects.message.draw("すべての階の地図が完成した！", true);
             }, 3000);
-            input.enqueue(resolve);
-            input.runQueue();
+            queue.push(resolve);
+            queue.run();
         });
     }
-    boxEvent(item) {
+    treasureEvent(item) {
         return new Promise(resolve => {
             const { se, input, model } = this;
-            this.enqueueMessage("宝箱を開けた！", se.openBox);
-            this.enqueueMessage(item.name + "を手に入れた！");
-            this.enqueueMessage("ちゃんと装備した！");
-            input.enqueue(() => {
+            const queue = new OnInputQueue(input);
+            this.pushMessage(queue, "宝箱を開けた！", se.openBox);
+            this.pushMessage(queue, item.name + "を手に入れた！");
+            this.pushMessage(queue, "ちゃんと装備した！");
+            queue.push(() => {
                 const { x, y } = model.chara;
                 this.preRenderCell(x, y);
                 resolve();
             });
-            input.runQueue();
+            queue.run();
         });
     }
     enemyEvent(enemy) {
@@ -522,11 +515,12 @@ export class DungeonView {
             const result = enemy.result;
             const { encountText, safeText, damageText } = enemy.design;
             const { input, se } = this;
-            this.enqueueMessage(encountText, se.encount);
-            if (result == ENEMY_RESULT.DODGED)
-                this.enqueueMessage(safeText, se.useItem);
+            const queue = new OnInputQueue(input);
+            this.pushMessage(queue, encountText, se.encount);
+            if (result == EnemyResult.DODGED)
+                this.pushMessage(queue, safeText, se.useItem);
             else {
-                input.enqueue(() => {
+                queue.push(() => {
                     se.crash.play();
                     const context = this.contexts.dark;
                     context.fillStyle = "white";
@@ -538,12 +532,12 @@ export class DungeonView {
                     }, 120);
                 }, 850);
             }
-            if (result == ENEMY_RESULT.GAMEOVER) {
-                this.enqueueMessage("体力が尽きてしまった！", se.gameover, 3000, true);
-                this.enqueueMessage("-  ゲームオーバー  -", null, 1000);
+            if (result == EnemyResult.GAMEOVER) {
+                this.pushMessage(queue, "体力が尽きてしまった！", se.gameover, 3000, true);
+                this.pushMessage(queue, "-  ゲームオーバー  -", null, 1000);
             }
-            input.enqueue(resolve);
-            input.runQueue();
+            queue.push(resolve);
+            queue.run();
         });
     }
 }
@@ -587,48 +581,47 @@ export class DungeonScreen {
             }
             const isWall = model.walkChara(direction);
             if (isWall) {
-                view.se.wall.play();
-                view.drawFloor();
+                view.wallEvent();
                 this.inputStandby();
                 return;
             }
             for (let enemy of floor.enemies)
                 model.walkEnemy(enemy);
-            yield new Promise(resolve => view.animateWalking(direction, resolve));
+            yield new Promise(resolve => view.animateWalking(resolve));
             const isFloorCompleted = floor.updateMappingRate();
             view.drawStatus();
             view.drawMap();
             if (isFloorCompleted) {
-                model.completeCount++;
-                model.mappingAll();
+                const isGameCompleted = model.incrementCompleteCount();
+                model.floor.mappingAll();
                 view.preRenderAll();
                 view.drawFloor();
                 view.drawMap();
                 yield view.floorCompleteEvent();
                 view.drawAll();
-                if (model.isGameCompleted()) {
+                if (isGameCompleted) {
                     yield view.gameCompleteEvent();
                     this.nextFunction();
                     return;
                 }
             }
             switch (model.cell.event) {
-                case EVENT.NONE:
+                case Event.NONE:
                     this.onInput();
                     return;
-                case EVENT.BOX:
-                    const item = model.boxEvent();
-                    yield view.boxEvent(item);
+                case Event.TREASURE:
+                    const item = model.treasureEvent();
+                    yield view.treasureEvent(item);
                     this.drawAndInputStandby();
                     return;
-                case EVENT.STAIRS:
+                case Event.STAIRS:
                     model.stairsEvent();
                     setTimeout(() => this.show(), 200);
                     return;
-                case EVENT.ENEMY:
+                case Event.ENEMY:
                     const enemy = model.enemyEvent();
                     yield view.enemyEvent(enemy);
-                    if (enemy.result == ENEMY_RESULT.GAMEOVER)
+                    if (enemy.result == EnemyResult.GAMEOVER)
                         location.reload();
                     else
                         this.drawAndInputStandby();
@@ -637,18 +630,18 @@ export class DungeonScreen {
         });
     }
     getInputDirection() {
-        const { x, y, key } = this.input;
+        const { x, y, key } = this.input.getState();
         if (!key)
             return null;
         const trais = this.triangles;
-        return ((key == "ArrowUp") ? DIRECTION.UP :
-            (key == "ArrowDown") ? DIRECTION.DOWN :
-                (key == "ArrowLeft") ? DIRECTION.LEFT :
-                    (key == "ArrowRight") ? DIRECTION.RIGHT :
-                        (trais.up.contains(x, y)) ? DIRECTION.UP :
-                            (trais.down.contains(x, y)) ? DIRECTION.DOWN :
-                                (trais.left.contains(x, y)) ? DIRECTION.LEFT :
-                                    (trais.right.contains(x, y)) ? DIRECTION.RIGHT :
+        return ((key == "ArrowUp") ? Direction.UP :
+            (key == "ArrowDown") ? Direction.DOWN :
+                (key == "ArrowLeft") ? Direction.LEFT :
+                    (key == "ArrowRight") ? Direction.RIGHT :
+                        (trais.up.contains(x, y)) ? Direction.UP :
+                            (trais.down.contains(x, y)) ? Direction.DOWN :
+                                (trais.left.contains(x, y)) ? Direction.LEFT :
+                                    (trais.right.contains(x, y)) ? Direction.RIGHT :
                                         null);
     }
 }

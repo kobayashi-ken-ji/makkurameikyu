@@ -46,15 +46,25 @@ export declare class Context2D {
     static createVirtual(w: number, h: number): CanvasRenderingContext2D;
 }
 export declare class Input {
-    x: number;
-    y: number;
-    key: string | null;
+    private x;
+    private y;
+    private key;
     private onInput;
-    private queue;
-    standby(onInput: () => {}): void;
+    getState(): {
+        x: number;
+        y: number;
+        key: string;
+    };
+    standby(onInput: () => void): void;
     stop(): void;
     constructor(element: Element);
-    enqueue(onInput: () => void, delay?: number): void;
-    runQueue(): void;
+}
+export declare class OnInputQueue {
+    private onInputs;
+    private delays;
+    private input;
+    constructor(input: Input);
+    push(onInput: () => void, delay?: number): void;
+    run(): void;
 }
 //# sourceMappingURL=utility.d.ts.map

@@ -9,29 +9,32 @@ export const CHARA_PX = 44;
 
 /**
  * キャンバスのサイズ
- * @param W     幅   (10セル分)
- * @param H     高さ (15セル分)
- * @param CHARA_X   主人公の描画座標X (中心までの幅)
- * @param CHARA_Y   主人公の描画座標Y (中心までの高さ)
+ * @param W         幅   (10セル分)
+ * @param H         高さ (15セル分)
+ * @param CHARA_X   主人公の描画座標X
+ * @param CHARA_Y   主人公の描画座標Y
  */
 export const CANVAS = {
-    W : 320,
-    H : 480,
+    W       : 320,
+    H       : 480,
     CHARA_X : 5 * CELL_PX,
     CHARA_Y : 5 * CELL_PX,
 
 } as const;
 
 
-
 /**
  * 背景プリレンダ用 キャンバスサイズ
- * @param W     幅   (描画横幅 + 左右余白)
- * @param H     高さ (描画縦幅 + 上下余白)
+ * @param W             幅   (描画横幅 + 左右余白)
+ * @param H             高さ (描画縦幅 + 上下余白)
+ * @param LEFT_MARGIN   左余白の幅
+ * @param TOP_MARGIN    上余白の幅
  */
 export const BG_CANVAS = {
-    W : (32 * CELL_PX) + CANVAS.W,
-    H : (32 * CELL_PX) + CANVAS.H,
+    W           : (32 * CELL_PX) + CANVAS.W,
+    H           : (32 * CELL_PX) + CANVAS.H,
+    LEFT_MARGIN : CANVAS.CHARA_X,
+    TOP_MARGIN  : CANVAS.CHARA_Y,
     
 } as const;
 
@@ -45,7 +48,7 @@ export const BG_CANVAS = {
 export const WALK_PATTERN = [1, 0, 1, 2] as const;
 
 // 向き  (画像シートの y軸)
-export enum DIRECTION  {
+export enum Direction  {
     UP    = 0,
     RIGHT = 1,
     DOWN  = 2,
@@ -89,7 +92,7 @@ export type SoundEffects = Readonly<{
 /**
  * 階段の行先データ
  */
-export type StairsExcelData = Readonly<[floorNum: number, x: number, y: number]>;
+export type StairsExcelData = readonly [floorNum: number, x: number, y: number];
 export const STAIRS_LIST = [
     [1, 15, 2 ],
     [0, 13, 15],
