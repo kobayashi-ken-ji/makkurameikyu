@@ -23,7 +23,7 @@ export class Item
      */
     constructor(
         public quantity: number,
-        public name: string
+        public readonly name: string
     ) {}
 }
 
@@ -33,51 +33,59 @@ export class Item
 //      - 描画処理
 //=============================================================================
 
-class Walker
+abstract class Walker
 {
-    // セル単位
-    x     = 0;  // 現在の座標
-    y     = 0;
-    moveX = 0;  // 移動量 (移動後座標 - 移動前座標)
-    moveY = 0;
-    
-    // px単位
-    pxX   = 0;  // 現在の座標
-    pxY   = 0;
+    // 現在のセル座標、移動量
+    private _x    = 0;
+    private _y    = 0;
+    private moveX = 0;
+    private moveY = 0;
 
-    // 向き
-    direction: Direction;
+    // 向き、歩行パターンのインデックス
+    public  direction: Direction = Direction.DOWN;
+    private i: 0|1|2|3 = 0;
 
-    // 画像シート, 画像チップの幅、歩行パターンインデックス
-    private readonly image    : HTMLImageElement;
-    private readonly chipSize : number;
-    private i: 0|1|2|3;
+    /**
+     * @param image     画像シート
+     * @param chipSize  画像チップの幅
+     */
+    constructor(
+        private readonly image    : HTMLImageElement,
+        private readonly chipSize : number,
+    ) {}
 
-    constructor(image: HTMLImageElement, chipSize: number, x: number, y: number) {
 
-        this.image    = image;
-        this.chipSize = chipSize;
-        this.setXY(x, y);
+    // ゲッターのみを実装
+    get x() { return this._x; }
+    get y() { return this._y; }
 
-        // 初期は下向き & 棒立ち
-        this.direction = Direction.DOWN;
-        this.i = 0;
+
+    /**
+     * 背景上の座標(px) = 移動後の位置 - 歩行アニメーション用補正
+     * @param offset  歩行アニメーションの際にずらすpx数
+     */
+    getXyOnBg(offset: number = 0) {
+        return {
+            x : (this._x * CELL_PX) - (this.moveX * offset),
+            y : (this._y * CELL_PX) - (this.moveY * offset),
+        };
     }
-    
 
-    // 座標を移動
-    setXY(x: number, y: number) {
 
-        const lastX = this.x;
-        const lastY = this.y;
-        this.x      = x;
-        this.y      = y;
-        this.moveX  = x - lastX;
-        this.moveY  = y - lastY;
-        this.pxX    = x * CELL_PX;
-        this.pxY    = y * CELL_PX;
+    // 座標指定 (歩行処理、階層移動 などに使用)
+    setXy(x: number, y: number, direction?: Direction) {
 
+        // 移動量 (移動後 - 移動前)
+        this.moveX  = x - this._x;
+        this.moveY  = y - this._y;
+
+        // 新座標
+        this._x   = x;
+        this._y   = y;
+
+        // 向き (移動量が0の場合は変更なし)
         this.direction = 
+            direction ??
             (this.moveY < 0)  ? Direction.UP    :
             (this.moveY > 0)  ? Direction.DOWN  :
             (this.moveX < 0)  ? Direction.LEFT  :
@@ -124,30 +132,18 @@ class Walker
 
 export class MainChara extends Walker
 {
-    // キャラステータス
-    hpMax : number;
-    hp    : number;
-    walkCount = 0;    // 歩数
-    safeCount = 0;    // 敵を防いだ回数
-
     // 画面上のキャラ描画座標 (px)
-    // 主人公のみ、画像サイズが異なる
+    // 主人公のみ画像サイズが異なるため、描画座標を調整
     private readonly diff    = CHARA_PX - CELL_PX;
     private readonly screenX = CANVAS.CHARA_X - (this.diff / 2);
     private readonly screenY = CANVAS.CHARA_Y - this.diff;
 
-
     /**
      * @param image 画像シート
-     * @param hpMax HPの最大値
      */
-    constructor(image: HTMLImageElement, hpMax: number) {
-
-        super(image, CHARA_PX, 0, 0);
-        this.hpMax  = hpMax;
-        this.hp     = hpMax;
+    constructor(image: HTMLImageElement) {
+        super(image, CHARA_PX);
     }
-
 
     /**
      * キャラを描画
@@ -180,7 +176,8 @@ export class Enemy extends Walker
 
     constructor(design: EnemyDesign, x: number, y: number) {
 
-        super(design.image, CELL_PX, x, y);
+        super(design.image, CELL_PX);
+        this.setXy(x, y, Direction.DOWN);
         this.design = design;
         this.result = EnemyResult.UNENCOUNTERED;
     }
@@ -193,19 +190,19 @@ export class Enemy extends Walker
 export class EnemyDesign
 {
     /**
-     * @param chase         true 追跡 / false ランダム移動
-     * @param safeItem      この敵を防御できるアイテム
+     * @param isChaser      true 追跡 / false ランダム移動
+     * @param dodgingItem   この敵を回避できるアイテムの番号
      * @param image         画像シート
      * @param encountText   遭遇時のテキスト
-     * @param safeText      回避のテキスト
+     * @param dodgedText    回避のテキスト
      * @param damageText    ダメージ時のテキスト
      */
     constructor(
-        public readonly chase       : boolean,
-        public readonly safeItem    : Item,
+        public readonly isChaser    : boolean,
+        public readonly dodgingItem : number,
         public readonly image       : HTMLImageElement,
         public readonly encountText : string,
-        public readonly safeText    : string,
+        public readonly dodgedText  : string,
         public readonly damageText  : string
     ) {}
 

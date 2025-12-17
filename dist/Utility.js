@@ -163,7 +163,7 @@ export class Context2D {
     }
 }
 export class Input {
-    getState() {
+    getInputValue() {
         return {
             x: this.x,
             y: this.y,

@@ -14,8 +14,7 @@
 
 // 定数
 import {
-    CELL_PX, CANVAS, BG_CANVAS, Direction, 
-    type StairsExcelData, type FloorExcelData, type Contexts, type SoundEffects
+    CELL_PX, CANVAS, BG_CANVAS, Direction, type Coordinate, type FloorExcelData
 } from './constants.js';
 
 // クラス
@@ -27,7 +26,7 @@ import {Item, MainChara, EnemyDesign, Enemy, EnemyResult} from './character.js';
 //=============================================================================
 
 /**
- * セルのイベント
+ * セルのイベント  (エクセルデータと共通)
  */
 enum Event {
     NONE     = 1,    // 通路     敵は ここのみ通行可
@@ -38,7 +37,7 @@ enum Event {
 }
 
 /**
- * 壁の種類
+ * 壁の種類  (エクセルデータと共通)
  */
 enum Wall {
     NORMAL      = 0,    // 通常
@@ -46,8 +45,24 @@ enum Wall {
 };
 
 //=============================================================================
+// 自作エラー
+//=============================================================================
+
+class IndexError extends Error {
+    public constructor(index: number) {
+        super(`配列の要素を取得できませんでした。 index:${index}`);
+    }
+}
+
+class IndexError2D extends Error {
+    public constructor(x: number, y: number) {
+        super(`二次元配列の要素を取得できませんでした。 x:${x}, y:${y}`);
+    }
+}
+
+//=============================================================================
 // セル クラス
-//      ダンジョンの１マスのデータ型
+//      ・ダンジョンの１マスのデータを保持
 //=============================================================================
 
 export class Cell
@@ -66,6 +81,9 @@ export class Cell
         // エクセルデータを桁ごとに分解
         //      例: 1234  →  ["1", "2", "3", "4"]
         const arr: string[] = excelData.toString().split("");
+        
+        if (arr.length != 4)
+            throw new Error(`引数${excelData}は4桁ではありません。`);
 
         // フィールドに代入
         this.event  = Number(arr[0]);
@@ -85,50 +103,80 @@ export class Cell
         this.chipY = 5 * CELL_PX;
         return this.param;
     }
+
+    /**
+     * 指定イベントと異なる場合は、エラーを発生させる
+     * @param event 想定されるイベント
+     * @returns     セル自身
+     */
+    checkEvent(event: Event): Cell {
+        if (this.event != event)
+            throw new Error(`想定されているeventと異なります。 event:${event}`);
+
+        return this;
+    }
 }
 
 //=============================================================================
 // 階層 クラス
-//      ・データの保持
-//      ・データの操作メソッド
+//      ・階層１つ分のデータを保持
+//      ・整合性を維持するための操作メソッド
 //=============================================================================
 
-export class Floor
-{
-    // メディアを保持 (外部クラスが使用、このクラスでは不使用)
-    readonly image : HTMLImageElement; // 背景画像シート
+/**
+ * DungeonView へ公開する部分 (内部を変更できるメソッドを排除)
+ */
+interface ReadonlyFloor {
+    readonly name  : string;
+    readonly image : HTMLImageElement;
     readonly bgm   : Bgm;
+    getCell(x: number, y: number): Readonly<Cell>;
+    getCells(): readonly (readonly Readonly<Cell>[])[];
+    getEnemies(): readonly Readonly<Enemy>[];
+    getMappingRate(): number;
+    getMappingPoints(): readonly Readonly<Point>[];
+}
 
-    // 階層データ
-    readonly cells   : readonly(readonly Cell[])[];
-    readonly enemies : Enemy[];
+
+export class Floor implements ReadonlyFloor
+{
+    // マップデータ(セルの二次元配列)、階層内の敵リスト
+    private readonly cells   : readonly(readonly Cell[])[];
+    private readonly enemies : Enemy[] = [];
 
     // マッピング率関連
     private mappingMax   = 0;   // 通行できるセルの数
     private mappingCount = 0;   // マッピング数 (通行できるセルのみ)
-    public  mappingRate  = 0;   // 踏破率
+    private mappingRate  = 0;   // 踏破率
+    private mappingPoints: Point[] = [];    // 歩行時にマッピングした座標 の配列
 
-    /**
-     * 新しくマッピングした座標 の配列
-     *      利用の流れ
-     *      (1) DungeonModel.mappingAround()  配列を空にして、(2)を複数回呼出し
-     *      (2) Floor.mappingCell()           配列に要素を追加
-     *      (3) DungeonView.animateWalking()  読み取り
-     */
-    mappingPoints: Point[] = [];
+    // 公開するフィールド
+    //      クラス内では不使用
+    //      階層変更時の処理を簡素化するために、このクラスで保持
+    readonly name  : string;
+    readonly image : HTMLImageElement;
+    readonly bgm   : Bgm;
+    
+    // フィールド公開用ゲッター (readonly)
+    getCells(): readonly (readonly Readonly<Cell>[])[] {return this.cells;}
+    getEnemies(): readonly Readonly<Enemy>[] {return this.enemies;}
+    getMappingRate(): number {return this.mappingRate;}
+    getMappingPoints(): readonly Readonly<Point>[] {return this.mappingPoints;}
 
 
     /**
      * @param mapExcelData  エクセルで作成した階層データ
+     * @param name          階層名
      * @param image         背景画像シート
      * @param bgm           BGM (ループ再生される)
      * @param enemyDesigns  敵の設計図リスト
      */
     constructor(
         mapExcelData : FloorExcelData,
+        name         : string, 
         image        : HTMLImageElement,
         bgm          : Bgm,
-        enemyDesigns : readonly EnemyDesign[] 
+        enemyDesigns : readonly EnemyDesign[]
     ) {
         // エクセルデータ → Cell[][]
         const cells =
@@ -137,43 +185,62 @@ export class Floor
                     num => new Cell(num) ));
 
         // フィールド初期化
-        this.image   = image;
-        this.bgm     = bgm;
-        this.cells   = cells;
-        this.enemies = [];
+        this.name  = name;
+        this.image = image;
+        this.bgm   = bgm;
+        this.cells = cells;
 
-
+        
         for (let y=0; y<cells    .length; ++y) {
         for (let x=0; x<cells[y]!.length; ++x) {
 
-            const cell = cells[y]![x]!;
+            const cell = cells[y]?.[x];
+            if (!cell) throw new IndexError2D(x, y);
 
-            // 敵を生成
+            // 敵インスタンスを生成、リストへ追加
             if (cell.event == Event.ENEMY) {
 
-                // 敵の設計図を取得
                 const design = enemyDesigns[cell.param];
-                if (!design) throw Error("敵インデックスが不適切です : " + cell.param);
+                if (!design) throw new IndexError(cell.param);
 
-                // 敵インスタンスを生成、リストへ追加
                 const enemy = design.generate(x, y);
                 this.enemies.push(enemy);
             }
 
-            // 通路数カウント
-            if (cell.event != Event.WALL) 
+            // 通路数、マッピング数 をカウント
+            if (cell.event != Event.WALL) {
                 this.mappingMax++;
+                if (cell.mapped) this.mappingCount++;
+            }
         }}
     }
 
+    //-------------------------------------------------------------------------
+    // 配列内の要素を取得する
+    //-------------------------------------------------------------------------
 
     /**
-     * 指定座標のセルを取得 (範囲外を参照した場合はエラー)
+     * セルを取得 (セルがundefinedになる場合はエラー)
      */
-    getCell(x: number, y: number): Cell {
+    getCell(x: number, y: number): Readonly<Cell> {
 
         const cell = this.cells[y]?.[x];
-        if (!cell) throw new Error(`cellsの範囲外です  x:${x}, y:${y}`);
+        if (!cell) throw new IndexError2D(x, y);
+        return cell;
+    }
+
+    /**
+     * セルを取得 (内部用)
+     *  セルがundefinedになる、またはeventが異なる 場合はエラー
+     */
+    private _getCell(x: number, y: number, event?: Event): Cell {
+
+        const cell = this.cells[y]?.[x];
+        if (!cell) throw new IndexError2D(x, y);
+
+        if (event != undefined)
+            cell.checkEvent(event);
+
         return cell;
     }
 
@@ -181,48 +248,65 @@ export class Floor
     // 敵の操作
     //-------------------------------------------------------------------------
 
-    // 敵を移動
-    moveEnemy(enemy: Enemy, x: number, y: number) {
-    
-        // 移動前、移動後 セル
-        const from = this.getCell(enemy.x, enemy.y);
-        const to   = this.getCell(x, y);
-        
-        // enemies側
-        enemy.setXY(x, y);
+    /**
+     * 敵を移動
+     * @param floorEnemyIndex   敵を指定 (this.enemies用インデックス)
+     * @param x                 行先の座標X
+     * @param y                 行先の座標Y
+     */
+    moveEnemy(floorEnemyIndex: number, x: number, y: number) {
 
-        // map側
-        from.event = Event.NONE;     // 消去
-        to.event   = Event.ENEMY;    // 追加
-        to.param   = from.param;     // 敵番号
+        // 敵を取得
+        const enemy = this.enemies[ floorEnemyIndex ];
+        if (!enemy) throw new IndexError(floorEnemyIndex);
+
+        // cells側
+        const isMoving = !(enemy.x == x  &&  enemy.y == y);
+        if (isMoving) {
+            const from = this._getCell(enemy.x, enemy.y, Event.ENEMY);
+            const to   = this._getCell(x, y, Event.NONE);
+            from.event = Event.NONE;     // 消去
+            to.event   = Event.ENEMY;    // 追加
+            to.param   = from.param;     // 敵番号
+        }
+
+        // enemies側  (移動が無くても、敵の移動量を0にするために実行)
+        enemy.setXy(x, y);
     }
 
 
-    // 指定座標の敵を削除し、取得
+    /**
+     * 指定座標の敵を削除し、取得
+     */
     deleteEnemy(x: number, y: number): Enemy {
 
         const enemies = this.enemies;
 
-        // cell から削除
-        const cell = this.getCell(x, y);
+        // cells内から削除
+        const cell = this._getCell(x, y, Event.ENEMY);
         cell.event = Event.NONE;
 
-        // enemies 内を検索、削除
+        // enemies内を検索し、削除
         for (let i=0; i<enemies.length; ++i) {
-            const enemy = enemies[i]!;
+            const enemy = enemies[i];
+            if (!enemy) throw new IndexError(i);
 
             if (enemy.x == x && enemy.y == y) {
                 enemies.splice(i, 1);
                 return enemy;
             }
         }
-
-        throw new Error("指定座標に敵は存在しません");
+        throw new Error(`指定座標に敵は存在しません  x:${x}, y:${y}`);
     }
     
     //-------------------------------------------------------------------------
     // マッピング
     //-------------------------------------------------------------------------
+
+    // 踏破率を取得 (0 ~ 100)
+    // getMappingRate(): number {
+    //     return Math.floor(this.mappingCount / this.mappingMax * 100);
+    // }
 
     /**
      * 踏破率を更新
@@ -238,24 +322,21 @@ export class Floor
         this.mappingRate = Math.floor(this.mappingCount / this.mappingMax * 100);
         const isCompleted = (this.mappingRate === 100);
 
+        // 踏破 → 全セルを可視化
+        if (isCompleted) this.mappingAll();
         return isCompleted;
     }
 
 
     /**
      * 全てのセルをマッピング
-     * @param cellEvent  [省略可] 指定イベントのみマッピング
      */
-    mappingAll(cellEvent?: Event) {
-
+    mappingAll() {
         const cells = this.cells;
 
         for (let y=0;  y < cells    .length;  ++y) {
         for (let x=0;  x < cells[y]!.length;  ++x) {
-
-            if (cellEvent == undefined  ||
-                cellEvent == cells[y]![x]!.event)
-                this.mappingCell(x, y, true);
+            this.mappingCell(x, y, true);
         }}
     }
 
@@ -268,7 +349,8 @@ export class Floor
      */
     mappingCell(x: number, y: number, stop = false) {
         
-        const cell  = this.getCell(x, y);
+        const cell = this.cells[y]?.[x];
+        if (!cell) return;
 
         if (!cell.mapped) {
 
@@ -293,6 +375,34 @@ export class Floor
     }
 
 
+   /**
+    * キャラの周囲をマッピング (歩行時のマッピング処理)
+    * @param x キャラの座標X
+    * @param y キャラの座標Y
+    */
+    mappingAround(x: number, y: number) {
+
+        const up    = y - 1;
+        const down  = y + 1;
+        const left  = x - 1;
+        const right = x + 1;
+
+        this.mappingPoints = [];
+
+        // 上下左右 (十字型)
+        this.mappingCell(x    , up  );
+        this.mappingCell(x    , down);
+        this.mappingCell(left , y   );
+        this.mappingCell(right, y   );
+
+        // 8方向化 (難易度調整)
+        this.mappingCell(left , up  );
+        this.mappingCell(right, up  );
+        this.mappingCell(left , down);
+        this.mappingCell(right, down);
+    }
+
+
     /**
      * [デバッグ] 1歩で階層クリアする状態へ (キャラが居るセル以外を全てマッピング)
      * @param x キャラ座標X
@@ -302,7 +412,7 @@ export class Floor
 
         if (this.mappingRate == 100) return;
         this.mappingAll();
-        const cell = this.getCell(x, y);
+        const cell = this._getCell(x, y);
         cell.mapped = false;
         this.mappingCount--;
         this.updateMappingRate();
@@ -310,98 +420,148 @@ export class Floor
 }
 
 //=============================================================================
-// ダンジョンの処理、データ管理
+// Model 全階層のデータをまとめて管理、ダンジョンの処理
 //=============================================================================
 
-export class DungeonModel
-{
-    // 現在のデータ (階層番号、階層データ、キャラ座標のセル)
-    floorNum = 0;
-    floor    = new Floor([[2000]], new Image(), new Bgm(""), []);
-    cell     = new Cell(2000);
+/**
+ * キャラクターの状態を保持
+ */
+export class CharaStatus {
+    readonly hpMax = 3;
+    hp: number = this.hpMax;
+    walkCount = 0;    // 歩数
+    safeCount = 0;    // 敵を防いだ回数
+}
 
-    // クリアした階層数
+/**
+ * 歩行処理の結果 (DungeonScreen へを渡す)
+ */
+interface WalkingResult {
+    isWall : boolean;               // 壁にぶつかったか否か
+    event  : Event;                 // 移動先セルのイベント
+    isFloorCompleted : boolean;     // 現階層で初めて踏破率100%になった時のみtrue
+    isGameCompleted  : boolean;     // 全階層を踏破したか否か
+}
+
+
+/**
+ * DungeonView へ公開する部分 (内部を変更できるメソッドを排除)
+ */
+interface ReadonlyDungeonModel {
+    getChara(): Readonly<MainChara>;
+    getItems(): readonly Readonly<Item>[];
+    getCharaStatus(): Readonly<CharaStatus>;
+}
+
+
+export class DungeonModel implements ReadonlyDungeonModel
+{
+    // 現階層のデータ
+    //      仮値で初期化 (コンパイルエラーを回避) しているが、
+    //      コンストラクタ内でメソッドを呼び出し、正式に初期化している
+    private floor = new Floor([[2000]], "", new Image(), new Bgm(""), []);
+    private cell  = new Cell(2000);
+
+    // クリアした階層数、HPなどのステータス
     private completeCount = 0;
+    private readonly charaStatus = new CharaStatus();
+
 
     /**
-     * インスタンス生成後、setCharaCoordinate() を実行すること
-     * @param chara         メインキャラ
-     * @param items         アイテムリスト
-     * @param enemyDesigns  敵設計図リスト
-     * @param floors        階層データリスト
-     * @param stairsList    階段リスト
+     * @param chara                 メインキャラ
+     * @param items                 アイテムリスト
+     * @param enemyDesigns          敵設計図リスト
+     * @param floors                階層データリスト
+     * @param stairsDestinations    階段の行先リスト
+     * @param initialCoordinate     メインキャラの初期座標
      */
     constructor(
-        readonly chara        : MainChara,
-        readonly items        : readonly Item[],
-        readonly enemyDesigns : readonly EnemyDesign[],
-        readonly floors       : readonly Floor[],
-        readonly stairsList   : readonly StairsExcelData[]
-    ) {}
+        private readonly chara              : MainChara,
+        private readonly items              : readonly Item[],
+        private readonly floors             : readonly Floor[],
+        private readonly stairsDestinations : readonly Coordinate[],
+        initialCoordinate: Coordinate
+    ) {
+        this.changeFloor(...initialCoordinate);
+    }
 
+    // DungeonView へフィールドを渡すためのメソッド
+    getFloor(): ReadonlyFloor {return this.floor;}
+    getChara(): Readonly<MainChara> {return this.chara;}
+    getItems(): readonly Readonly<Item>[] {return this.items;}
+    getCharaStatus(): Readonly<CharaStatus> {return this.charaStatus;}
 
-    // キャラの座標を設定
-    setCharaCoordinate(floorNum: number, x: number, y: number) {
-
-        // キャラ座標 変更
-        const chara = this.chara;
-        chara.setXY(x, y);
-        chara.direction = Direction.DOWN;
+    
+    /**
+     * 階層を切り替え (キャラの初期位置設定、階段イベント で使用)
+     */
+    changeFloor(floorNum: number, x: number, y: number) {
 
         // 階層データを切り替え
         const floor = this.floors[ floorNum ];
-        if (!floor) throw new Error("floorNum が不適切です : " + floorNum);
-        
-        this.floorNum = floorNum;
-        this.floor    = floor;
+        if (!floor) throw new IndexError(floorNum);
+        this.floor = floor;
+
+        // 移動先の整合性チェック
+        const cell = floor.getCell(x, y);
+        if (cell.event == Event.WALL)
+            throw new Error("指定座標が壁のため、キャラを配置できません。");
+
+        // キャラ座標 変更
+        const chara = this.chara;
+        chara.setXy(x, y);
+        chara.direction = Direction.DOWN;
 
         // キャラの周囲を可視化
-        this.mappingAround(x, y);
+        floor.mappingAround(x, y);
         floor.mappingCell(x, y);
         floor.updateMappingRate();
-    }
-    
-    //-------------------------------------------------------------------------
-    // マッピング
-    //-------------------------------------------------------------------------
 
-    /**
-     * 踏破階層数を増やす
-     * @returns 全ての階層を踏破したか否か
-     */
-    incrementCompleteCount(): boolean {
-        this.completeCount++;
-        return (this.completeCount == this.floors.length);
-    }
-
-
-   // 歩行時の可視化処理
-    mappingAround(x: number, y: number) {
-
-        const floor  = this.floor;
-        const top    = y - 1;
-        const bottom = y + 1;
-        const left   = x - 1;
-        const right  = x + 1;
-
-        this.floor.mappingPoints = [];
-
-        // 上下左右 (十字型)
-        floor.mappingCell(x    , top);
-        floor.mappingCell(x    , bottom);
-        floor.mappingCell(left , y  );
-        floor.mappingCell(right, y  );
-
-        // 8方向化 (難易度調整)
-        floor.mappingCell(left , top);
-        floor.mappingCell(right, top);
-        floor.mappingCell(left , bottom);
-        floor.mappingCell(right, bottom);
+        // [デバッグ] 1歩で階層クリア  (キャラ地点以外をマッピング済みにする)
+        this.floor.debugMappingAll(chara.x, chara.y);
     }
 
     //-------------------------------------------------------------------------
     // 歩行
     //-------------------------------------------------------------------------
+
+    /**
+     * キャラ、敵 全ての歩行処理
+     */
+    walkAll(direction: Direction): Readonly<WalkingResult> {
+        const floor = this.floor;
+
+        // 戻り値を生成
+        const result: WalkingResult = {
+            isWall : false,
+            event  : Event.NONE,
+            isFloorCompleted : false,
+            isGameCompleted  : false,
+        }
+
+        // キャラを移動
+        result.isWall = this.walkChara(direction);
+        if (result.isWall) return result;
+
+        // すべての敵を移動
+        floor.getEnemies().forEach( (enemy, index) => {
+            const {x, y} = this.getEnemyDestination(enemy);
+            floor.moveEnemy(index, x, y);
+        });
+
+        // 階層クリア判定
+        result.isFloorCompleted = floor.updateMappingRate();
+
+        // ゲームクリア判定
+        if (result.isFloorCompleted) {
+            this.completeCount++;
+            result.isGameCompleted = (this.completeCount == this.floors.length);
+        }
+
+        // イベントは敵の移動後に取得
+        result.event = this.cell.event;
+        return result;
+    }
 
     /**
      * メインキャラの歩行処理
@@ -411,10 +571,10 @@ export class DungeonModel
     walkChara(direction: Direction): boolean {
 
         // 向きを設定
-        const chara = this.chara;
+        const {chara, floor} = this;
         chara.direction = direction;
 
-        // 移動前の座標を取得
+        // 移動前の座標
         let x = chara.x;
         let y = chara.y;
         
@@ -425,14 +585,14 @@ export class DungeonModel
         else if (direction == Direction.RIGHT) x +=  1;
 
         // 壁にぶつかるか否か
-        const cell = this.floor.getCell(x, y);
+        const cell   = floor.getCell(x, y);
         const isWall = (cell.event == Event.WALL);
         
         // 壁以外 → キャラ移動 + マッピング
         if (!isWall) {
-            chara.setXY(x, y);
-            chara.walkCount++;
-            this.mappingAround(x, y);
+            chara.setXy(x, y);
+            this.charaStatus.walkCount++;
+            floor.mappingAround(x, y);
             this.cell = cell;
         }
 
@@ -441,73 +601,71 @@ export class DungeonModel
 
 
     /**
-     * 敵の歩行処理
+     * 敵の移動先を決定
      */
-    walkEnemy(enemy: Enemy) {
+    private getEnemyDestination(enemy: Readonly<Enemy>): Point {
 
         const {chara, floor}  = this;
         const {x, y} = enemy;
 
         // キャラと敵が同座標  →  移動しない
-        if (x == chara.x  &&  y == chara.y) {
-            floor.moveEnemy(enemy, x, y);
-            return;
-        }
+        if (x == chara.x  &&  y == chara.y) 
+            return new Point(x, y);
 
         //-----------------------------------
         // 移動先の候補を作成
         //-----------------------------------
 
-        // 上下左右から、通行可能なものだけに絞る
-        const coords = [
+        const cells = floor.getCells();
+
+        // 上下左右から、通行可能な座標のみに絞る
+        const points = [
             new Point(x  ,  y-1),
             new Point(x  ,  y+1),
             new Point(x-1,  y  ),
             new Point(x+1,  y  ),
 
-        ].filter( ({x, y}) => (floor.cells[y]?.[x]?.event == Event.NONE) );
+        ].filter( ({x, y}) => (cells[y]?.[x]?.event == Event.NONE) );
 
-        // 候補先なし → 移動しない
-        if (coords.length == 0) {
-            floor.moveEnemy(enemy, x, y);
-            return;
-        }
+        // 候補なし → 移動しない
+        if (points.length == 0)
+            return new Point(x, y);
 
         //-----------------------------------
         // 候補の中から決定
         //-----------------------------------
 
         // 追跡の敵
-        if (enemy.design.chase) {
+        if (enemy.design.isChaser) {
 
             let minDistance = 1000;
-            let minCoord = coords[0]!;
+            let minPoint = points[0]!;
 
-            for (const coord of coords) {
+            for (const point of points) {
 
                 // 主人公と敵の相対距離
                 const distance =
-                    Math.abs( coord.y - chara.y ) +
-                    Math.abs( coord.x - chara.x );
+                    Math.abs( point.y - chara.y ) +
+                    Math.abs( point.x - chara.x );
                 
                 // 最短距離の更新
                 if (minDistance > distance) {
                     minDistance = distance;
-                    minCoord    = coord;
+                    minPoint    = point;
                 }
             }
-
-            floor.moveEnemy(enemy, minCoord.x, minCoord.y);
+            return minPoint;
         }
 
         // ランダム移動の敵
         else {
-            const i = Math.floor( Math.random() * coords.length );
-            const {x, y} = coords[i]!;
-            floor.moveEnemy(enemy, x, y);
+            const i = Math.floor( Math.random() * points.length );
+            const point = points[i];
+            if (!point) throw new IndexError(i);
+            return points[i]!;
         }
     }
-
+    
     //-------------------------------------------------------------------------
     // 歩行後のセルイベント
     //-------------------------------------------------------------------------
@@ -516,9 +674,10 @@ export class DungeonModel
     treasureEvent(): Readonly<Item> {
 
         // アイテムを取得
-        const itemNum = this.cell.deleteEvent();
-        const item = this.items[itemNum];
-        if (!item) throw new Error("セルのアイテム番号が不適切です : " + itemNum);
+        const cell  = this.cell.checkEvent(Event.TREASURE);
+        const index = cell.deleteEvent();
+        const item  = this.items[index];
+        if (!item) throw new IndexError(index);
         
         // 所持数を増やす
         item.quantity ++;
@@ -529,13 +688,14 @@ export class DungeonModel
     stairsEvent() {
 
         // 移動先を取得
-        const index  = this.cell.param;
-        const stairs = this.stairsList[index];
-        if (!stairs) throw new Error("セルの階段番号が不適切です : " + index);
+        const cell   = this.cell.checkEvent(Event.STAIRS);
+        const index  = cell.param;
+        const stairs = this.stairsDestinations[index];
+        if (!stairs) throw new IndexError(index);
 
-        // キャラの座標を設定
+        // 座標を設定
         const [floorNum, x, y] = stairs;
-        this.setCharaCoordinate(floorNum, x, y);
+        this.changeFloor(floorNum, x, y);
     }
 
 
@@ -543,24 +703,29 @@ export class DungeonModel
      * 敵の遭遇処理
      * @returns 遭遇した敵
      */
-    enemyEvent(): Enemy {
+    enemyEvent(): Readonly<Enemy> {
 
         // 遭遇した敵を削除
-        const chara = this.chara;
-        const enemy = this.floor.deleteEnemy(chara.x, chara.y);
-        const safeItem = enemy.design.safeItem;
+        const {x, y} = this.chara;
+        const charaStatus = this.charaStatus;
+        const enemy = this.floor.deleteEnemy(x, y);
+
+        // 回避用アイテムを取得
+        const index = enemy.design.dodgingItem;
+        const item = this.items[index];
+        if (!item) throw new IndexError(index);
         
         // 回避 → アイテムを消費
-        if (safeItem.quantity > 0) {
-            safeItem.quantity--;
-            chara.safeCount++;
+        if (item.quantity > 0) {
+            item.quantity--;
+            charaStatus.safeCount++;
             enemy.result = EnemyResult.DODGED;
         }
         
         // ダメージ → HP減少
         else {
-            chara.hp--;
-            enemy.result = (chara.hp == 0)
+            charaStatus.hp--;
+            enemy.result = (charaStatus.hp == 0)
                 ? EnemyResult.GAMEOVER
                 : EnemyResult.CRASHED;
         }
@@ -572,6 +737,33 @@ export class DungeonModel
 //=============================================================================
 // ダンジョンの描画、イベント演出
 //=============================================================================
+
+/**
+ * DungeonViewクラスで使用するキャンバス
+ */
+export interface Contexts {
+    readonly ui        : CanvasRenderingContext2D;   // ステータス、ボタン、テキスト、地図用
+    readonly dark      : CanvasRenderingContext2D;   // 暗闇用
+    readonly bg        : CanvasRenderingContext2D;   // キャラ、敵、背景用
+    readonly preRender : CanvasRenderingContext2D;   // 背景 事前描画用
+}
+
+/**
+ * DungeonViewクラスで使用する効果音
+ */
+export interface SoundEffects {
+    readonly complete1 : HTMLAudioElement;   // 階層クリア
+    readonly complete2 : HTMLAudioElement;   // ゲームクリア
+    readonly stairs    : HTMLAudioElement;   // 階段移動
+    readonly openBox   : HTMLAudioElement;   // 宝箱
+    readonly useItem   : HTMLAudioElement;   // アイテムで敵を回避
+    readonly crash     : HTMLAudioElement;   // 敵と衝突
+    readonly select    : HTMLAudioElement;   // 選択音 (メッセージ表示)
+    readonly wall      : HTMLAudioElement;   // 壁衝突音
+    readonly gameover  : HTMLAudioElement;   // ゲームオーバー
+    readonly encount   : HTMLAudioElement;   // 遭遇
+}
+
 
 export class DungeonView
 {
@@ -593,11 +785,14 @@ export class DungeonView
      * @param se        効果音のリスト
      */
     constructor(
-        private readonly model    : Readonly<DungeonModel>,
+        private readonly model    : ReadonlyDungeonModel,
+        private          floor    : ReadonlyFloor,
         private readonly input    : Input,
         private readonly contexts : Contexts,
         private readonly se       : SoundEffects
     ) {}
+
+    setFloor(floor: ReadonlyFloor) {this.floor = floor;}
 
     //-------------------------------------------------------------------------
     // 描画
@@ -616,11 +811,12 @@ export class DungeonView
 
     /**
      * キャラ、敵、背景を描画 (背景はプリレンダが必要)
-     * @param shiftPx  歩行アニメーションの際にずらすpx数
+     * @param offset  歩行アニメーションの際にずらすpx数
      */
-    drawFloor(shiftPx: number = 0) {
+    drawFloor(offset: number = 0) {
 
-        const {chara, floor} = this.model;
+        const chara = this.model.getChara();
+        const enemies = this.floor.getEnemies();
         const {bg:contextBg, preRender:contextPre} = this.contexts;
 
         // 背景の取得座標
@@ -628,25 +824,27 @@ export class DungeonView
         //      = キャラ座標 （A==B のため相殺した)
 
         // キャラ座標(背景上) = 移動後の位置 - 歩行アニメーション用補正
-        const bgX = chara.pxX - (chara.moveX * shiftPx);
-        const bgY = chara.pxY - (chara.moveY * shiftPx);
+        const bg = chara.getXyOnBg(offset);
+        // const bgX = chara.pxX - (chara.moveX * offset);
+        // const bgY = chara.pxY - (chara.moveY * offset);
 
         // 画像取得、実画面へ描画
-        const bgImage = contextPre.getImageData(bgX, bgY, CANVAS.W, CANVAS.H);
+        const bgImage = contextPre.getImageData(bg.x, bg.y, CANVAS.W, CANVAS.H);
         contextBg.putImageData(bgImage, 0, 0);
 
         // 敵を描画
-        for (const enemy of floor.enemies) {
+        for (const enemy of enemies) {
 
             // 背景上の敵座標 = 移動後の位置 - 歩行アニメーション用補正
-            const enemyX = enemy.pxX - (enemy.moveX * shiftPx);
-            const enemyY = enemy.pxY - (enemy.moveY * shiftPx);
+            const enemyOnBg = enemy.getXyOnBg(offset);
+            // const enemyX = enemy.pxX - (enemy.moveX * offset);
+            // const enemyY = enemy.pxY - (enemy.moveY * offset);
 
             // 画面上の敵座標 = 背景キャンバスの余白幅 + 背景上の敵座標 - 背景の取得座標
             enemy.draw(
                 contextBg,
-                BG_CANVAS.LEFT_MARGIN + enemyX - bgX,
-                BG_CANVAS.TOP_MARGIN  + enemyY - bgY
+                BG_CANVAS.LEFT_MARGIN + enemyOnBg.x - bg.x,
+                BG_CANVAS.TOP_MARGIN  + enemyOnBg.y - bg.y
             );
         }
 
@@ -665,9 +863,8 @@ export class DungeonView
         const LEFT    = 10;                   // マップを表示する 座標
         const TOP     = 50;
 
-        // 使用グローバル
-        const chara   = this.model.chara;
-        const cells   = this.model.floor.cells;
+        const chara   = this.model.getChara();
+        const cells   = this.floor.getCells();
         const context = this.contexts.ui;
         
         // マップクリア （移動前の敵を消す）
@@ -678,7 +875,9 @@ export class DungeonView
         for (let x=0;  x<cells[y]!.length;  ++x) {
 
             // 現位置のデータ
-            const {event, mapped} = cells[y]![x]!;
+            const cell = cells[y]?.[x];
+            if (!cell) throw new IndexError2D(x, y);
+            const {event, mapped} = cell;
 
             // 色を指定
             const color = 
@@ -701,7 +900,7 @@ export class DungeonView
                 CELL_PX, CELL_PX
             );
         }}
-        
+
         // キャラの描画
         context.fillStyle = "deepskyblue";
         context.fillRect(
@@ -726,12 +925,15 @@ export class DungeonView
     drawStatus() {
 
         const rects = this.rects;
-        const {floorNum, floor, chara, items} = this.model;
-        const {hpMax, hp, walkCount} = chara;
+        const model = this.model;
+        const items = model.getItems();
+        const {hpMax, hp, walkCount} = model.getCharaStatus();
+        const floor = this.floor;
+        const mappingRate = floor.getMappingRate();
 
         // ステータス
         const hpText = "●".repeat(hp) + "○".repeat(hpMax - hp);
-        const status = `地下${floorNum}階  ${floor.mappingRate}％  ${walkCount}歩  HP${hpText}`;
+        const status = `${floor.name}  ${mappingRate}％  ${walkCount}歩  HP${hpText}`;
 
         // 装備アイテム 一覧
         let equipment = "そうび\n";
@@ -762,7 +964,7 @@ export class DungeonView
         context.clearRect( 0, 0, CANVAS.W+1, CANVAS.H+1 );
 
         // 階層クリア済み → 暗闇なし
-        const isCompleted = (this.model.floor.mappingRate == 100);
+        const isCompleted = (this.floor.getMappingRate() == 100);
         if (isCompleted) return;
 
         // 黒塗りつぶし
@@ -802,12 +1004,19 @@ export class DungeonView
         context.fillRect( 0, 0, CANVAS.W, CANVAS.H );
         
         // 文字表示
-        const text           = "地下" + this.model.floorNum + "階";
+        const text           = this.floor.name;
         context.fillStyle    = "white";
         context.font         = "30px 'ＭＳ ゴシック'";
         context.textAlign    = "left";
         context.textBaseline = "top";
         context.fillText( text, CANVAS.W/3, CANVAS.H/2 );
+    }
+
+
+    // ダンジョン画面を描画 (階層切り替え画面の次の画面)
+    drawDungeonScreen() {
+        this.floor.bgm.play();
+        this.preRenderAll();
     }
 
     //-------------------------------------------------------------------------
@@ -821,12 +1030,14 @@ export class DungeonView
     animateWalking(nextFunction: ()=>void) {
 
         const self = this;
-        const {chara, floor} = this.model;
+        const chara = this.model.getChara();
+        const floor = this.floor;
+        const mappingPoints = floor.getMappingPoints();
         const ctxPre = this.contexts.preRender;
 
         // 歩行パターン を次のものに変更
         chara.nextPattern();
-        for (const enemy of floor.enemies)
+        for (const enemy of floor.getEnemies())
             enemy.nextPattern();
 
         // フレーム設定
@@ -838,11 +1049,14 @@ export class DungeonView
         let i = FRAME_LENGTH;
 
         // キャラを中心に 3*3セル の範囲 (背景描画用)
-        const x = BG_CANVAS.LEFT_MARGIN + chara.pxX - CELL_PX;
-        const y = BG_CANVAS.TOP_MARGIN  + chara.pxY - CELL_PX;
+        const direction = chara.direction;
+        const charaOnBg = chara.getXyOnBg();
+        const x = BG_CANVAS.LEFT_MARGIN + charaOnBg.x - CELL_PX;
+        const y = BG_CANVAS.TOP_MARGIN  + charaOnBg.y - CELL_PX;
         const w = CELL_PX * 3;
         const h = CELL_PX * 3;
-        const isHorizontalMove = (chara.moveX != 0);
+        const isHorizontalMove =
+            (direction == Direction.LEFT || direction == Direction.RIGHT);
         
         // アニメ処理
         drawFrame();                                        // 1フレーム目
@@ -862,7 +1076,7 @@ export class DungeonView
             //      キャラは移動後の座標のため、
             //      「描画位置 = 移動後座標 - ずらすpx」になる
             //      最終フレームで ズレは0px になる
-            const shiftPx = FRAME_PX * i;
+            const offset = FRAME_PX * i;
 
             // 新しくマッピングされた背景の 描画範囲を限定 
             //      アニメに合わせて、描画範囲を広げていく
@@ -871,23 +1085,23 @@ export class DungeonView
                 ctxPre.save();
                 const path = new Path2D();
                 path.rect(
-                    ( isHorizontalMove) ? x + shiftPx   : x,
-                    (!isHorizontalMove) ? y + shiftPx   : y,
-                    ( isHorizontalMove) ? w - shiftPx*2 : w,
-                    (!isHorizontalMove) ? h - shiftPx*2 : h
+                    ( isHorizontalMove) ? x + offset   : x,
+                    (!isHorizontalMove) ? y + offset   : y,
+                    ( isHorizontalMove) ? w - offset*2 : w,
+                    (!isHorizontalMove) ? h - offset*2 : h
                 );
                 ctxPre.clip(path);
             }
             
             // 新しくマッピングした背景をプリレンダ
-            for (const {x,y} of floor.mappingPoints)
+            for (const {x,y} of mappingPoints)
                 self.preRenderCell(x, y);
             
             // 範囲の限定を解除
             ctxPre.restore();
 
             // 実キャンバスへ描画
-            self.drawFloor(shiftPx);
+            self.drawFloor(offset);
         }
     }
 
@@ -902,7 +1116,7 @@ export class DungeonView
         const INVISIBLE_CELL_COLOR = "black";    // #101010
 
         const context = this.contexts.preRender;
-        const cells   = this.model.floor.cells;
+        const cells   = this.floor.getCells();
 
         // ベースの黒ベタ
         context.fillStyle = INVISIBLE_CELL_COLOR;
@@ -920,7 +1134,7 @@ export class DungeonView
     preRenderCell(x: number, y: number) {
 
         const context = this.contexts.preRender;
-        const floor   = this.model.floor;
+        const floor   = this.floor;
 
         // 描画座標
         const left = BG_CANVAS.LEFT_MARGIN + (x * CELL_PX);
@@ -947,10 +1161,11 @@ export class DungeonView
     /**
      * 「メッセージ表示・SE再生」処理を登録 
      *  (OnInputQueue.push のショートハンド)
-     * @param text      表示するメッセージ
-     * @param audio     再生するSE
-     * @param delay     終了後、次の入力受付を開始するまでの時間 [ミリ秒]
-     * @param bgmStop   再生中のBGMを停止する場合 true
+     * @param onInputQueue  処理の登録先
+     * @param text          表示するメッセージ
+     * @param audio         再生するSE
+     * @param delay         終了後、次の入力受付を開始するまでの時間 [ミリ秒]
+     * @param bgmStop       再生中のBGMを停止する場合 true
      */
     private pushMessage(
         onInputQueue: OnInputQueue,
@@ -979,19 +1194,15 @@ export class DungeonView
     floorCompleteEvent(): Promise<void> {
 
         return new Promise<void>(resolve => {
-            const {input, se, model} = this;
+            const {input, se, floor} = this;
             const queue = new OnInputQueue(input);
 
             // 暗闇を晴らす
             this.drawDark();
 
             // 演出をキューに追加
-            this.pushMessage(
-                queue,
-                "地下" + model.floorNum + "階の地図が完成した！",
-                se.complete1,
-                1500
-            );
+            const message = `${floor.name}の地図が完成した！`;
+            this.pushMessage(queue, message, se.complete1, 1500);
 
             // クリックで次の処理へ
             queue.push(resolve);
@@ -1005,14 +1216,11 @@ export class DungeonView
     gameCompleteEvent(): Promise<void> {
 
         return new Promise<void>(resolve => {
-            const {input, se, rects} = this;
+            const {input, se} = this;
             const queue = new OnInputQueue(input);
 
-            queue.push(()=>{
-                Bgm.stop();
-                se.complete2.play();
-                rects.message.draw("すべての階の地図が完成した！", true);
-            }, 3000);
+            const message = "すべての階の地図が完成した！";
+            this.pushMessage(queue, message, se.complete2, 3000, true);
 
             // クリックで次の処理へ
             queue.push(resolve);
@@ -1035,7 +1243,7 @@ export class DungeonView
             this.pushMessage(queue, "ちゃんと装備した！");
 
             queue.push(()=> {
-                const {x, y} = model.chara;
+                const {x, y} = model.getChara();
                 this.preRenderCell(x, y);    // 宝箱をBGで上書き
                 resolve();
             });
@@ -1054,7 +1262,7 @@ export class DungeonView
         return new Promise<void>(resolve => {
 
             const result = enemy.result;
-            const {encountText, safeText, damageText} = enemy.design;
+            const {encountText, dodgedText, damageText} = enemy.design;
             const {input, se} = this;
             const queue = new OnInputQueue(input);
 
@@ -1063,7 +1271,7 @@ export class DungeonView
 
             // 回避
             if (result == EnemyResult.DODGED)
-                this.pushMessage(queue, safeText, se.useItem);
+                this.pushMessage(queue, dodgedText, se.useItem);
 
             // ダメージ
             else {
@@ -1104,8 +1312,11 @@ export class DungeonView
 
 export class DungeonScreen
 {
-    // ダンジョンを全てクリアしたときの処理 (次の画面)
-    public nextFunction = ()=>{};
+    /**
+     * ダンジョンを全てクリアしたときの処理 (次の画面)
+     * 外部から代入する
+     */
+    public nextFunction?: (result: Readonly<CharaStatus>)=>void;
 
     // 十字ボタンのクリック範囲 (視認性のため、描画とは別々に定義)
     private readonly triangles = {
@@ -1121,10 +1332,14 @@ export class DungeonScreen
      * @param input 入力クラス
      */
     constructor(
-        public  readonly model: DungeonModel,
+        public  readonly model: Readonly<DungeonModel>,
         private readonly view : DungeonView,
         private readonly input: Readonly<Input>
-    ) {}
+    ) {
+        // 階層データを、modelからviewへ送る
+        const floor = model.getFloor();
+        view.setFloor(floor);
+    }
     
 
     /**
@@ -1133,18 +1348,11 @@ export class DungeonScreen
      */
     public show() {
 
-        const {model, view} = this;
+        const view = this.view;
         view.drawStairsScreen();
 
-        // [デバッグ] 1歩で階層クリア  (キャラ地点以外を可視化)
-        // (()=>{
-        //     const {x, y} = model.chara;
-        //     model.floor.debugMappingAll(x, y);
-        // })();
-
         setTimeout(()=>{
-            model.floor.bgm.play();
-            view.preRenderAll();
+            view.drawDungeonScreen();
             this.drawAndInputStandby();
         }, 1500);
     }
@@ -1167,7 +1375,6 @@ export class DungeonScreen
     private async onInput() {
 
         const {model, view} = this;
-        const floor = model.floor;
 
         // 入力方向を取得
         const direction = this.getInputDirection();
@@ -1180,8 +1387,9 @@ export class DungeonScreen
         // 歩行
         //---------------------------------------
 
-        // キャラ歩行
-        const isWall = model.walkChara(direction);
+        // キャラ、敵の歩行処理
+        const {isWall, event, isFloorCompleted, isGameCompleted}
+            = model.walkAll(direction);
 
         // 壁にぶつかる処理
         if (isWall) {
@@ -1190,28 +1398,21 @@ export class DungeonScreen
             return;
         }
 
-        // 敵歩行
-        for (let enemy of floor.enemies)
-            model.walkEnemy(enemy);
-
         // 歩行アニメーション
         await new Promise<void>(resolve => view.animateWalking(resolve));
+
+        // ステータスを更新
+        view.drawStatus();
+        view.drawMap();
 
         //---------------------------------------
         // クリアイベント
         //---------------------------------------
 
-        // 踏破率更新
-        const isFloorCompleted = floor.updateMappingRate();
-        view.drawStatus();
-        view.drawMap();
-
         // 階層クリア
         if (isFloorCompleted) {
-            const isGameCompleted = model.incrementCompleteCount();
 
             // 全背景を可視化
-            model.floor.mappingAll();
             view.preRenderAll();
             view.drawFloor();
             view.drawMap();
@@ -1221,8 +1422,13 @@ export class DungeonScreen
 
             // ゲームクリア  →  次の画面へ
             if (isGameCompleted) {
+
+                // リザルトを取得
                 await view.gameCompleteEvent();
-                this.nextFunction();
+                const charaStatus = this.model.getCharaStatus();
+
+                if (!this.nextFunction) throw new Error("遷移先の画面が未設定です。");
+                this.nextFunction(charaStatus);
                 return;
             }
         }
@@ -1231,28 +1437,35 @@ export class DungeonScreen
         // 移動先イベント
         //---------------------------------------
         
-        switch (model.cell.event) {
+        switch (event) {
 
             // 通路  →  連続歩行
-            case Event.NONE :
+            case Event.NONE:
                 this.onInput();
                 return;
 
             // 宝箱
-            case Event.TREASURE :
+            case Event.TREASURE:
                 const item = model.treasureEvent();
                 await view.treasureEvent(item);
                 this.drawAndInputStandby();
                 return;
 
+            
             // 階段  →  階層移動
-            case Event.STAIRS :
+            case Event.STAIRS:
                 model.stairsEvent();
+
+                // 階層データをviewへ送る
+                const floor = model.getFloor();
+                view.setFloor(floor);
+
                 setTimeout(()=>this.show(), 200);
                 return;
 
+            
             // 敵と遭遇
-            case Event.ENEMY :
+            case Event.ENEMY:
                 const enemy = model.enemyEvent();
                 await view.enemyEvent(enemy);
                 
@@ -1274,7 +1487,7 @@ export class DungeonScreen
     private getInputDirection(): Direction | null {
 
         // キーが離された → 連続歩行を停止
-        const {x, y, key} = this.input.getState();
+        const {x, y, key} = this.input.getInputValue();
         if (!key) return null;
 
         const trais = this.triangles;

@@ -50,7 +50,7 @@ export declare class Input {
     private y;
     private key;
     private onInput;
-    getState(): {
+    getInputValue(): {
         x: number;
         y: number;
         key: string;

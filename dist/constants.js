@@ -20,7 +20,7 @@ export var Direction;
     Direction[Direction["DOWN"] = 2] = "DOWN";
     Direction[Direction["LEFT"] = 3] = "LEFT";
 })(Direction || (Direction = {}));
-export const STAIRS_LIST = [
+export const STAIRS_DESTINATIONS = [
     [1, 15, 2],
     [0, 13, 15],
     [2, 16, 2],

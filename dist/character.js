@@ -6,30 +6,31 @@ export class Item {
     }
 }
 class Walker {
-    constructor(image, chipSize, x, y) {
-        this.x = 0;
-        this.y = 0;
-        this.moveX = 0;
-        this.moveY = 0;
-        this.pxX = 0;
-        this.pxY = 0;
+    constructor(image, chipSize) {
         this.image = image;
         this.chipSize = chipSize;
-        this.setXY(x, y);
+        this._x = 0;
+        this._y = 0;
+        this.moveX = 0;
+        this.moveY = 0;
         this.direction = Direction.DOWN;
         this.i = 0;
     }
-    setXY(x, y) {
-        const lastX = this.x;
-        const lastY = this.y;
-        this.x = x;
-        this.y = y;
-        this.moveX = x - lastX;
-        this.moveY = y - lastY;
-        this.pxX = x * CELL_PX;
-        this.pxY = y * CELL_PX;
+    get x() { return this._x; }
+    get y() { return this._y; }
+    getXyOnBg(offset = 0) {
+        return {
+            x: (this._x * CELL_PX) - (this.moveX * offset),
+            y: (this._y * CELL_PX) - (this.moveY * offset),
+        };
+    }
+    setXy(x, y, direction) {
+        this.moveX = x - this._x;
+        this.moveY = y - this._y;
+        this._x = x;
+        this._y = y;
         this.direction =
-            (this.moveY < 0) ? Direction.UP :
+            (direction !== null && direction !== void 0 ? direction : (this.moveY < 0)) ? Direction.UP :
                 (this.moveY > 0) ? Direction.DOWN :
                     (this.moveX < 0) ? Direction.LEFT :
                         (this.moveX > 0) ? Direction.RIGHT :
@@ -49,15 +50,11 @@ class Walker {
     }
 }
 export class MainChara extends Walker {
-    constructor(image, hpMax) {
-        super(image, CHARA_PX, 0, 0);
-        this.walkCount = 0;
-        this.safeCount = 0;
+    constructor(image) {
+        super(image, CHARA_PX);
         this.diff = CHARA_PX - CELL_PX;
         this.screenX = CANVAS.CHARA_X - (this.diff / 2);
         this.screenY = CANVAS.CHARA_Y - this.diff;
-        this.hpMax = hpMax;
-        this.hp = hpMax;
     }
     draw(context) {
         super.draw(context, this.screenX, this.screenY);
@@ -73,18 +70,19 @@ export var EnemyResult;
 ;
 export class Enemy extends Walker {
     constructor(design, x, y) {
-        super(design.image, CELL_PX, x, y);
+        super(design.image, CELL_PX);
+        this.setXy(x, y, Direction.DOWN);
         this.design = design;
         this.result = EnemyResult.UNENCOUNTERED;
     }
 }
 export class EnemyDesign {
-    constructor(chase, safeItem, image, encountText, safeText, damageText) {
-        this.chase = chase;
-        this.safeItem = safeItem;
+    constructor(isChaser, dodgingItem, image, encountText, dodgedText, damageText) {
+        this.isChaser = isChaser;
+        this.dodgingItem = dodgingItem;
         this.image = image;
         this.encountText = encountText;
-        this.safeText = safeText;
+        this.dodgedText = dodgedText;
         this.damageText = damageText;
     }
     generate(x, y) {

@@ -10,12 +10,14 @@
 // インポート
 //=============================================================================
 
-import {CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST, type Contexts, type SoundEffects}
+import {CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_DESTINATIONS, type Coordinate}
 from './constants.js';
 
 import {Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue} from './utility.js';
 import {Item, MainChara, EnemyDesign} from './character.js';
-import {Floor, DungeonModel, DungeonView, DungeonScreen} from './dungeon.js';
+
+import {Floor, DungeonModel, DungeonView, DungeonScreen, CharaStatus, 
+    type Contexts, type SoundEffects} from './dungeon.js';
 
 //=============================================================================
 // ゲーム本体
@@ -27,12 +29,14 @@ import {Floor, DungeonModel, DungeonView, DungeonScreen} from './dungeon.js';
 
 class Main
 {
-    readonly input         : Input;
     readonly startScreen   : StartScreen;
     readonly endScreen     : EndScreen;
     readonly dungeonScreen : DungeonScreen;
 
     constructor() {
+
+        // 主人公の初期座標
+        const INITIAL_COORDINATE: Coordinate = [0, 13, 11];
 
         // 音量調整
         Sound.InitialVolume = 0.3;
@@ -89,19 +93,18 @@ class Main
         //---------------------------------------------------------------------
 
         // アイテム配列
-        const items = [
+        const items: readonly Item[] = [
             new Item(0, "ヘルメット"),
             new Item(0, "キャンディ"),
             new Item(0, "たいまつ"),
-        ] as const;
+        ];
 
         // 敵データ
-        const enemyDesigns = [
+        const enemyDesigns: readonly EnemyDesign[] = [
 
             // ひよこ
             new EnemyDesign(
-                false,
-                items[0],
+                false, 0,
                 images.enemyChick,
                 "ちびっ子にぶつかった！",
                 "ヘルメットが守ってくれた！",
@@ -110,8 +113,7 @@ class Main
 
             // ねこ
             new EnemyDesign(
-                true,
-                items[1],
+                true, 1,
                 images.enemyCat,
                 "いたずらっ子に追いつかれた！",
                 "キャンディをあげたら去っていった！",
@@ -120,8 +122,7 @@ class Main
 
             // スライム
             new EnemyDesign(
-                false,
-                items[2],
+                false, 2,
                 images.enemySlime,
                 "スライムがあらわれた！",
                 "たいまつを投げつけると、逃げていった！",
@@ -130,32 +131,31 @@ class Main
         ];
 
         // 主人公 (操作キャラ)
-        const chara = new MainChara(images.mainChara, 3);
+        const chara = new MainChara(images.mainChara);
 
         // ダンジョンの階層データ
         const floors = [
-            new Floor( DUNGEON_EXCEL_DATA[0], images.bgStone, bgm.stoneFloor, enemyDesigns),
-            new Floor( DUNGEON_EXCEL_DATA[1], images.bgRock,  bgm.rockFloor , enemyDesigns),
-            new Floor( DUNGEON_EXCEL_DATA[2], images.bgIce,   bgm.iceFloor  , enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[0], "地下1階", images.bgStone, bgm.stoneFloor, enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[1], "地下2階", images.bgRock,  bgm.rockFloor , enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[2], "地下3階", images.bgIce,   bgm.iceFloor  , enemyDesigns),
         ];
 
         // 入力クラス
         const element = document.getElementById("g_canvas3");
-        if (!element) throw new Error("ID g_canvas3 の要素を取得できません ");
+        if (!element) throw new Error("ID g_canvas3 の要素を取得できません。");
         const input = new Input(element);
 
         // ダンジョン画面関連
-        const model  = new DungeonModel(chara, items, enemyDesigns, floors, STAIRS_LIST);
-        const view   = new DungeonView(model, input, contexts, se);
+        const model  = new DungeonModel(chara, items, floors, STAIRS_DESTINATIONS, INITIAL_COORDINATE);
+        const view   = new DungeonView(model, model.getFloor(), input, contexts, se);
         const screen = new DungeonScreen(model, view, input);
         
         //---------------------------------------------------------------------
         // フィールド初期化
         //---------------------------------------------------------------------
 
-        this.input          = input;
         this.startScreen    = new StartScreen(contexts.ui, images.startScreen, input);
-        this.endScreen      = new EndScreen  (contexts.ui, images.startScreen, chara);
+        this.endScreen      = new EndScreen  (contexts.ui, images.startScreen);
         this.dungeonScreen  = screen;
 
         Rect.init(contexts.ui, se.select);
@@ -169,17 +169,13 @@ class Main
         await ImageLoader.getPromise();
 
         const {startScreen, endScreen, dungeonScreen} = this;
-        const model = dungeonScreen.model;
 
         // [デバッグ] ゲームクリア画面を表示
         // endScreen.show(); return;
 
-        // キャラの座標を設定
-        model.setCharaCoordinate(0, 13, 11);
-
         // 画面遷移を設定 (スタート画面 → ダンジョン画面 → ゲームクリア画面)
         startScreen.nextFunction   = ()=>dungeonScreen.show();
-        dungeonScreen.nextFunction = ()=>endScreen.show();
+        dungeonScreen.nextFunction = (charaStatus)=>endScreen.show(charaStatus);
 
         // ゲーム開始
         startScreen.show();
@@ -268,13 +264,12 @@ class EndScreen
     constructor(
         private readonly context: CanvasRenderingContext2D,
         private readonly bgImage: HTMLImageElement,
-        private readonly chara  : MainChara
     ) {}
 
     
     // 画面を表示
-    show() {
-        const chara = this.chara;
+    show(charaStatus: Readonly<CharaStatus>) {
+        const {walkCount, hpMax, hp, safeCount} = charaStatus;
 
         // キャンバス設定
         const context = this.context;
@@ -290,9 +285,9 @@ class EndScreen
 
         const texts = {
             title   : "ゲームクリア",
-            walk    : "歩数 : "          + chara.walkCount,
-            damage  : "受けたダメージ : " + (chara.hpMax - chara.hp),
-            item    : "アイテム消費数 : " + chara.safeCount,
+            walk    : "歩数 : "          + walkCount,
+            damage  : "受けたダメージ : " + (hpMax - hp),
+            item    : "アイテム消費数 : " + safeCount,
         };
         
         // タイトル

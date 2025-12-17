@@ -391,10 +391,12 @@ export class Input
     private onInput : ()=>void  = ()=>{};
 
 
-    // 入力された値を取得
-    getState() {
+    /**
+     * 入力された値を取得
+     */
+    getInputValue() {
         return {
-            x   : this.x, 
+            x   : this.x,
             y   : this.y,
             key : this.key,
         };

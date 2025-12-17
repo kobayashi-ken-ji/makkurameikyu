@@ -1,34 +1,34 @@
 import { Direction } from './constants.js';
 export declare class Item {
     quantity: number;
-    name: string;
+    readonly name: string;
     constructor(quantity: number, name: string);
 }
-declare class Walker {
-    x: number;
-    y: number;
-    moveX: number;
-    moveY: number;
-    pxX: number;
-    pxY: number;
-    direction: Direction;
+declare abstract class Walker {
     private readonly image;
     private readonly chipSize;
+    private _x;
+    private _y;
+    private moveX;
+    private moveY;
+    direction: Direction;
     private i;
-    constructor(image: HTMLImageElement, chipSize: number, x: number, y: number);
-    setXY(x: number, y: number): void;
+    constructor(image: HTMLImageElement, chipSize: number);
+    get x(): number;
+    get y(): number;
+    getXyOnBg(offset?: number): {
+        x: number;
+        y: number;
+    };
+    setXy(x: number, y: number, direction?: Direction): void;
     nextPattern(): void;
     draw(context: CanvasRenderingContext2D, left: number, top: number): void;
 }
 export declare class MainChara extends Walker {
-    hpMax: number;
-    hp: number;
-    walkCount: number;
-    safeCount: number;
     private readonly diff;
     private readonly screenX;
     private readonly screenY;
-    constructor(image: HTMLImageElement, hpMax: number);
+    constructor(image: HTMLImageElement);
     draw(context: CanvasRenderingContext2D): void;
 }
 export declare enum EnemyResult {
@@ -43,13 +43,13 @@ export declare class Enemy extends Walker {
     constructor(design: EnemyDesign, x: number, y: number);
 }
 export declare class EnemyDesign {
-    readonly chase: boolean;
-    readonly safeItem: Item;
+    readonly isChaser: boolean;
+    readonly dodgingItem: number;
     readonly image: HTMLImageElement;
     readonly encountText: string;
-    readonly safeText: string;
+    readonly dodgedText: string;
     readonly damageText: string;
-    constructor(chase: boolean, safeItem: Item, image: HTMLImageElement, encountText: string, safeText: string, damageText: string);
+    constructor(isChaser: boolean, dodgingItem: number, image: HTMLImageElement, encountText: string, dodgedText: string, damageText: string);
     generate(x: number, y: number): Enemy;
 }
 export {};

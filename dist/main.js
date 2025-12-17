@@ -8,12 +8,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_LIST } from './constants.js';
+import { CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_DESTINATIONS } from './constants.js';
 import { Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue } from './utility.js';
 import { Item, MainChara, EnemyDesign } from './character.js';
-import { Floor, DungeonModel, DungeonView, DungeonScreen } from './dungeon.js';
+import { Floor, DungeonModel, DungeonView, DungeonScreen, CharaStatus } from './dungeon.js';
 class Main {
     constructor() {
+        const INITIAL_COORDINATE = [0, 13, 11];
         Sound.InitialVolume = 0.3;
         Bgm.InitialVolume = 0.3;
         const contexts = {
@@ -55,26 +56,25 @@ class Main {
             new Item(0, "たいまつ"),
         ];
         const enemyDesigns = [
-            new EnemyDesign(false, items[0], images.enemyChick, "ちびっ子にぶつかった！", "ヘルメットが守ってくれた！", "たんこぶが出来た！"),
-            new EnemyDesign(true, items[1], images.enemyCat, "いたずらっ子に追いつかれた！", "キャンディをあげたら去っていった！", "おかしが無かったのでイタズラされた！"),
-            new EnemyDesign(false, items[2], images.enemySlime, "スライムがあらわれた！", "たいまつを投げつけると、逃げていった！", "まとわりつかれた！"),
+            new EnemyDesign(false, 0, images.enemyChick, "ちびっ子にぶつかった！", "ヘルメットが守ってくれた！", "たんこぶが出来た！"),
+            new EnemyDesign(true, 1, images.enemyCat, "いたずらっ子に追いつかれた！", "キャンディをあげたら去っていった！", "おかしが無かったのでイタズラされた！"),
+            new EnemyDesign(false, 2, images.enemySlime, "スライムがあらわれた！", "たいまつを投げつけると、逃げていった！", "まとわりつかれた！"),
         ];
-        const chara = new MainChara(images.mainChara, 3);
+        const chara = new MainChara(images.mainChara);
         const floors = [
-            new Floor(DUNGEON_EXCEL_DATA[0], images.bgStone, bgm.stoneFloor, enemyDesigns),
-            new Floor(DUNGEON_EXCEL_DATA[1], images.bgRock, bgm.rockFloor, enemyDesigns),
-            new Floor(DUNGEON_EXCEL_DATA[2], images.bgIce, bgm.iceFloor, enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[0], "地下1階", images.bgStone, bgm.stoneFloor, enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[1], "地下2階", images.bgRock, bgm.rockFloor, enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[2], "地下3階", images.bgIce, bgm.iceFloor, enemyDesigns),
         ];
         const element = document.getElementById("g_canvas3");
         if (!element)
-            throw new Error("ID g_canvas3 の要素を取得できません ");
+            throw new Error("ID g_canvas3 の要素を取得できません。");
         const input = new Input(element);
-        const model = new DungeonModel(chara, items, enemyDesigns, floors, STAIRS_LIST);
-        const view = new DungeonView(model, input, contexts, se);
+        const model = new DungeonModel(chara, items, floors, STAIRS_DESTINATIONS, INITIAL_COORDINATE);
+        const view = new DungeonView(model, model.getFloor(), input, contexts, se);
         const screen = new DungeonScreen(model, view, input);
-        this.input = input;
         this.startScreen = new StartScreen(contexts.ui, images.startScreen, input);
-        this.endScreen = new EndScreen(contexts.ui, images.startScreen, chara);
+        this.endScreen = new EndScreen(contexts.ui, images.startScreen);
         this.dungeonScreen = screen;
         Rect.init(contexts.ui, se.select);
     }
@@ -82,10 +82,8 @@ class Main {
         return __awaiter(this, void 0, void 0, function* () {
             yield ImageLoader.getPromise();
             const { startScreen, endScreen, dungeonScreen } = this;
-            const model = dungeonScreen.model;
-            model.setCharaCoordinate(0, 13, 11);
             startScreen.nextFunction = () => dungeonScreen.show();
-            dungeonScreen.nextFunction = () => endScreen.show();
+            dungeonScreen.nextFunction = (charaStatus) => endScreen.show(charaStatus);
             startScreen.show();
         });
     }
@@ -131,13 +129,12 @@ class StartScreen {
     }
 }
 class EndScreen {
-    constructor(context, bgImage, chara) {
+    constructor(context, bgImage) {
         this.context = context;
         this.bgImage = bgImage;
-        this.chara = chara;
     }
-    show() {
-        const chara = this.chara;
+    show(charaStatus) {
+        const { walkCount, hpMax, hp, safeCount } = charaStatus;
         const context = this.context;
         context.fillStyle = "white";
         context.textAlign = "center";
@@ -147,9 +144,9 @@ class EndScreen {
         let y = 160;
         const texts = {
             title: "ゲームクリア",
-            walk: "歩数 : " + chara.walkCount,
-            damage: "受けたダメージ : " + (chara.hpMax - chara.hp),
-            item: "アイテム消費数 : " + chara.safeCount,
+            walk: "歩数 : " + walkCount,
+            damage: "受けたダメージ : " + (hpMax - hp),
+            item: "アイテム消費数 : " + safeCount,
         };
         context.font = 30 + "px 'ＭＳ ゴシック'";
         context.fillText(texts.title, x, y);

@@ -38,7 +38,6 @@ export const BG_CANVAS = {
     
 } as const;
 
-
 //=============================================================================
 // 画像シートから、キャラチップを取得
 //      TypeScript 5.0 以降では enum は型安全
@@ -56,51 +55,21 @@ export enum Direction  {
 }
 
 //=============================================================================
-// リソースリストの定義
+// ダンジョンのエクセルデータ
 //=============================================================================
 
 /**
- * キャンバスリスト
+ * 階段の行先座標
  */
-export type Contexts = Readonly<{
-    ui        : CanvasRenderingContext2D,   // ステータス、ボタン、テキスト、地図用
-    dark      : CanvasRenderingContext2D,   // 暗闇用
-    bg        : CanvasRenderingContext2D,   // キャラ、敵、背景用
-    preRender : CanvasRenderingContext2D,   // 背景 事前描画用
-}>;
-
-/**
- * 効果音リスト
- */
-export type SoundEffects = Readonly<{
-    complete1 : HTMLAudioElement,   // 階層クリア
-    complete2 : HTMLAudioElement,   // ゲームクリア
-    stairs    : HTMLAudioElement,   // 階段移動
-    openBox   : HTMLAudioElement,   // 宝箱
-    useItem   : HTMLAudioElement,   // アイテムで敵を回避
-    crash     : HTMLAudioElement,   // 敵と衝突
-    select    : HTMLAudioElement,   // 選択音 (メッセージ表示)
-    wall      : HTMLAudioElement,   // 壁衝突音
-    gameover  : HTMLAudioElement,   // ゲームオーバー
-    encount   : HTMLAudioElement,   // 遭遇
-}>;
-
-//=============================================================================
-// ダンジョンのエクセルデータ / 受取用の型
-//=============================================================================
-
-/**
- * 階段の行先データ
- */
-export type StairsExcelData = readonly [floorNum: number, x: number, y: number];
-export const STAIRS_LIST = [
+export type Coordinate = readonly [floorNum: number, x: number, y: number];
+export const STAIRS_DESTINATIONS: readonly Coordinate[] = [
     [1, 15, 2 ],
     [0, 13, 15],
     [2, 16, 2 ],
     [1, 15, 8 ],
     [2, 25, 12],
     [1, 28, 29],
-] as const;
+];
 
 
 /**
