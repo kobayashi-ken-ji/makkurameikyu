@@ -123,74 +123,70 @@ export class Cell
 //      ・整合性を維持するための操作メソッド
 //=============================================================================
 
+// new()の戻り値を Readonly<>化
+//      - 配列内部などは対象外になるため、カプセル化は弱い
+
+// new()の戻り値をインターフェース化
+//      - 完全なカプセル化
+//      - 記述量が多い (インターフェースに、公開するフィールド、メソッドを全て記述)
+  
+// 共通の課題
+//      - コンストラクタが2つ分の記述になる
+
 /**
  * DungeonView へ公開する部分 (内部を変更できるメソッドを排除)
+ * 配列内部のクラスインスタンスも Readonly<>化
  */
-interface ReadonlyFloor {
-    readonly name  : string;
-    readonly image : HTMLImageElement;
-    readonly bgm   : Bgm;
+interface FloorField {
+    readonly name           : string;
+    readonly image          : HTMLImageElement;
+    readonly bgm            : Bgm;
+    readonly cells          : readonly (readonly Readonly<Cell>[])[];
+    readonly enemies        : readonly Readonly<Enemy>[];
+    readonly mappingRate    : number;
+    readonly mappingPoints  : readonly Readonly<Point>[];
     getCell(x: number, y: number): Readonly<Cell>;
-    getCells(): readonly (readonly Readonly<Cell>[])[];
-    getEnemies(): readonly Readonly<Enemy>[];
-    getMappingRate(): number;
-    getMappingPoints(): readonly Readonly<Point>[];
 }
 
 
-export class Floor implements ReadonlyFloor
+// 内部を変更できるメソッド
+interface FloorMethod {
+    moveEnemy(floorEnemyIndex: number, x: number, y: number): void;
+    deleteEnemy(x: number, y: number): Enemy;
+    updateMappingRate(): boolean;
+    mappingAll(): void;
+    mappingCell(x: number, y: number, stop?: boolean): void;
+    mappingAround(x: number, y: number): void;
+    debugMappingAll(x: number, y: number): void;
+}
+
+// インスタンスが外部へ公開する部分
+type FloorInterface = FloorField & FloorMethod;
+
+
+export class Floor implements FloorInterface
 {
     // マップデータ(セルの二次元配列)、階層内の敵リスト
-    private readonly cells   : readonly(readonly Cell[])[];
-    private readonly enemies : Enemy[] = [];
+    readonly enemies : Enemy[] = [];
 
     // マッピング率関連
     private mappingMax   = 0;   // 通行できるセルの数
     private mappingCount = 0;   // マッピング数 (通行できるセルのみ)
-    private mappingRate  = 0;   // 踏破率
-    private mappingPoints: Point[] = [];    // 歩行時にマッピングした座標 の配列
-
-    // 公開するフィールド
-    //      クラス内では不使用
-    //      階層変更時の処理を簡素化するために、このクラスで保持
-    readonly name  : string;
-    readonly image : HTMLImageElement;
-    readonly bgm   : Bgm;
-    
-    // フィールド公開用ゲッター (readonly)
-    getCells(): readonly (readonly Readonly<Cell>[])[] {return this.cells;}
-    getEnemies(): readonly Readonly<Enemy>[] {return this.enemies;}
-    getMappingRate(): number {return this.mappingRate;}
-    getMappingPoints(): readonly Readonly<Point>[] {return this.mappingPoints;}
-
+    public  mappingRate  = 0;   // 踏破率
+    public  mappingPoints: Point[] = [];    // 歩行時にマッピングした座標 の配列
 
     /**
-     * @param mapExcelData  エクセルで作成した階層データ
-     * @param name          階層名
-     * @param image         背景画像シート
-     * @param bgm           BGM (ループ再生される)
-     * @param enemyDesigns  敵の設計図リスト
+     * プライベートコンストラクタ
+     *      create() の戻り値を FloorInterface にすることで、カプセル化を行う
+     *      publicな要素は、外部から書込禁止になる
      */
-    constructor(
-        mapExcelData : FloorExcelData,
-        name         : string, 
-        image        : HTMLImageElement,
-        bgm          : Bgm,
-        enemyDesigns : readonly EnemyDesign[]
+    private constructor(
+        public readonly cells : readonly(readonly Cell[])[],
+        public readonly name  : string,
+        public readonly image : HTMLImageElement,
+        public readonly bgm   : Bgm,
+        enemyDesigns   : readonly EnemyDesign[]
     ) {
-        // エクセルデータ → Cell[][]
-        const cells =
-            mapExcelData.map(
-                line => line.map(
-                    num => new Cell(num) ));
-
-        // フィールド初期化
-        this.name  = name;
-        this.image = image;
-        this.bgm   = bgm;
-        this.cells = cells;
-
-        
         for (let y=0; y<cells    .length; ++y) {
         for (let x=0; x<cells[y]!.length; ++x) {
 
@@ -213,6 +209,31 @@ export class Floor implements ReadonlyFloor
                 if (cell.mapped) this.mappingCount++;
             }
         }}
+    }
+
+    /**
+     * インスタンスのカプセル化
+     * @param mapExcelData 
+     * @param name 
+     * @param image         画像シート
+     * @param bgm 
+     * @param enemyDesigns 
+     * @returns 
+     */
+    static create(
+        mapExcelData : FloorExcelData,
+        name         : string, 
+        image        : HTMLImageElement,
+        bgm          : Bgm,
+        enemyDesigns : readonly EnemyDesign[]
+    ): FloorInterface {
+
+        const cells =
+            mapExcelData.map(
+                line => line.map(
+                    num => new Cell(num) ));
+
+        return new Floor(cells, name, image, bgm, enemyDesigns);
     }
 
     //-------------------------------------------------------------------------
@@ -459,7 +480,7 @@ export class DungeonModel implements ReadonlyDungeonModel
     // 現階層のデータ
     //      仮値で初期化 (コンパイルエラーを回避) しているが、
     //      コンストラクタ内でメソッドを呼び出し、正式に初期化している
-    private floor = new Floor([[2000]], "", new Image(), new Bgm(""), []);
+    private floor = Floor.create([[2000]], "", new Image(), new Bgm(""), []);
     private cell  = new Cell(2000);
 
     // クリアした階層数、HPなどのステータス
@@ -478,15 +499,20 @@ export class DungeonModel implements ReadonlyDungeonModel
     constructor(
         private readonly chara              : MainChara,
         private readonly items              : readonly Item[],
-        private readonly floors             : readonly Floor[],
+        private readonly floors             : readonly FloorInterface[],
         private readonly stairsDestinations : readonly Coordinate[],
         initialCoordinate: Coordinate
     ) {
         this.changeFloor(...initialCoordinate);
     }
 
+
+    // static create(): Readonly<DungeonModel> {
+
+    // }
+
     // DungeonView へフィールドを渡すためのメソッド
-    getFloor(): ReadonlyFloor {return this.floor;}
+    getFloor(): FloorField {return this.floor;}
     getChara(): Readonly<MainChara> {return this.chara;}
     getItems(): readonly Readonly<Item>[] {return this.items;}
     getCharaStatus(): Readonly<CharaStatus> {return this.charaStatus;}
@@ -544,7 +570,7 @@ export class DungeonModel implements ReadonlyDungeonModel
         if (result.isWall) return result;
 
         // すべての敵を移動
-        floor.getEnemies().forEach( (enemy, index) => {
+        floor.enemies.forEach( (enemy, index) => {
             const {x, y} = this.getEnemyDestination(enemy);
             floor.moveEnemy(index, x, y);
         });
@@ -616,8 +642,6 @@ export class DungeonModel implements ReadonlyDungeonModel
         // 移動先の候補を作成
         //-----------------------------------
 
-        const cells = floor.getCells();
-
         // 上下左右から、通行可能な座標のみに絞る
         const points = [
             new Point(x  ,  y-1),
@@ -625,7 +649,7 @@ export class DungeonModel implements ReadonlyDungeonModel
             new Point(x-1,  y  ),
             new Point(x+1,  y  ),
 
-        ].filter( ({x, y}) => (cells[y]?.[x]?.event == Event.NONE) );
+        ].filter( ({x, y}) => (floor.cells[y]?.[x]?.event == Event.NONE) );
 
         // 候補なし → 移動しない
         if (points.length == 0)
@@ -786,13 +810,13 @@ export class DungeonView
      */
     constructor(
         private readonly model    : ReadonlyDungeonModel,
-        private          floor    : ReadonlyFloor,
+        private          floor    : FloorField,
         private readonly input    : Input,
         private readonly contexts : Contexts,
         private readonly se       : SoundEffects
     ) {}
 
-    setFloor(floor: ReadonlyFloor) {this.floor = floor;}
+    setFloor(floor: FloorField) {this.floor = floor;}
 
     //-------------------------------------------------------------------------
     // 描画
@@ -816,7 +840,6 @@ export class DungeonView
     drawFloor(offset: number = 0) {
 
         const chara = this.model.getChara();
-        const enemies = this.floor.getEnemies();
         const {bg:contextBg, preRender:contextPre} = this.contexts;
 
         // 背景の取得座標
@@ -833,7 +856,7 @@ export class DungeonView
         contextBg.putImageData(bgImage, 0, 0);
 
         // 敵を描画
-        for (const enemy of enemies) {
+        for (const enemy of this.floor.enemies) {
 
             // 背景上の敵座標 = 移動後の位置 - 歩行アニメーション用補正
             const enemyOnBg = enemy.getXyOnBg(offset);
@@ -864,7 +887,7 @@ export class DungeonView
         const TOP     = 50;
 
         const chara   = this.model.getChara();
-        const cells   = this.floor.getCells();
+        const cells   = this.floor.cells;
         const context = this.contexts.ui;
         
         // マップクリア （移動前の敵を消す）
@@ -929,11 +952,10 @@ export class DungeonView
         const items = model.getItems();
         const {hpMax, hp, walkCount} = model.getCharaStatus();
         const floor = this.floor;
-        const mappingRate = floor.getMappingRate();
 
         // ステータス
         const hpText = "●".repeat(hp) + "○".repeat(hpMax - hp);
-        const status = `${floor.name}  ${mappingRate}％  ${walkCount}歩  HP${hpText}`;
+        const status = `${floor.name}  ${floor.mappingRate}％  ${walkCount}歩  HP${hpText}`;
 
         // 装備アイテム 一覧
         let equipment = "そうび\n";
@@ -964,7 +986,7 @@ export class DungeonView
         context.clearRect( 0, 0, CANVAS.W+1, CANVAS.H+1 );
 
         // 階層クリア済み → 暗闇なし
-        const isCompleted = (this.floor.getMappingRate() == 100);
+        const isCompleted = (this.floor.mappingRate == 100);
         if (isCompleted) return;
 
         // 黒塗りつぶし
@@ -1031,13 +1053,12 @@ export class DungeonView
 
         const self = this;
         const chara = this.model.getChara();
-        const floor = this.floor;
-        const mappingPoints = floor.getMappingPoints();
+        const {mappingPoints, enemies} = this.floor;
         const ctxPre = this.contexts.preRender;
 
         // 歩行パターン を次のものに変更
         chara.nextPattern();
-        for (const enemy of floor.getEnemies())
+        for (const enemy of enemies)
             enemy.nextPattern();
 
         // フレーム設定
@@ -1116,7 +1137,7 @@ export class DungeonView
         const INVISIBLE_CELL_COLOR = "black";    // #101010
 
         const context = this.contexts.preRender;
-        const cells   = this.floor.getCells();
+        const cells   = this.floor.cells;
 
         // ベースの黒ベタ
         context.fillStyle = INVISIBLE_CELL_COLOR;

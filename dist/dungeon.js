@@ -58,22 +58,17 @@ export class Cell {
     }
 }
 export class Floor {
-    getCells() { return this.cells; }
-    getEnemies() { return this.enemies; }
-    getMappingRate() { return this.mappingRate; }
-    getMappingPoints() { return this.mappingPoints; }
-    constructor(mapExcelData, name, image, bgm, enemyDesigns) {
+    constructor(cells, name, image, bgm, enemyDesigns) {
         var _a;
+        this.cells = cells;
+        this.name = name;
+        this.image = image;
+        this.bgm = bgm;
         this.enemies = [];
         this.mappingMax = 0;
         this.mappingCount = 0;
         this.mappingRate = 0;
         this.mappingPoints = [];
-        const cells = mapExcelData.map(line => line.map(num => new Cell(num)));
-        this.name = name;
-        this.image = image;
-        this.bgm = bgm;
-        this.cells = cells;
         for (let y = 0; y < cells.length; ++y) {
             for (let x = 0; x < cells[y].length; ++x) {
                 const cell = (_a = cells[y]) === null || _a === void 0 ? void 0 : _a[x];
@@ -93,6 +88,10 @@ export class Floor {
                 }
             }
         }
+    }
+    static create(mapExcelData, name, image, bgm, enemyDesigns) {
+        const cells = mapExcelData.map(line => line.map(num => new Cell(num)));
+        return new Floor(cells, name, image, bgm, enemyDesigns);
     }
     getCell(x, y) {
         var _a;
@@ -214,7 +213,7 @@ export class DungeonModel {
         this.items = items;
         this.floors = floors;
         this.stairsDestinations = stairsDestinations;
-        this.floor = new Floor([[2000]], "", new Image(), new Bgm(""), []);
+        this.floor = Floor.create([[2000]], "", new Image(), new Bgm(""), []);
         this.cell = new Cell(2000);
         this.completeCount = 0;
         this.charaStatus = new CharaStatus();
@@ -251,7 +250,7 @@ export class DungeonModel {
         result.isWall = this.walkChara(direction);
         if (result.isWall)
             return result;
-        floor.getEnemies().forEach((enemy, index) => {
+        floor.enemies.forEach((enemy, index) => {
             const { x, y } = this.getEnemyDestination(enemy);
             floor.moveEnemy(index, x, y);
         });
@@ -291,13 +290,12 @@ export class DungeonModel {
         const { x, y } = enemy;
         if (x == chara.x && y == chara.y)
             return new Point(x, y);
-        const cells = floor.getCells();
         const points = [
             new Point(x, y - 1),
             new Point(x, y + 1),
             new Point(x - 1, y),
             new Point(x + 1, y),
-        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == Event.NONE); });
+        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == Event.NONE); });
         if (points.length == 0)
             return new Point(x, y);
         if (enemy.design.isChaser) {
@@ -389,12 +387,11 @@ export class DungeonView {
     }
     drawFloor(offset = 0) {
         const chara = this.model.getChara();
-        const enemies = this.floor.getEnemies();
         const { bg: contextBg, preRender: contextPre } = this.contexts;
         const bg = chara.getXyOnBg(offset);
         const bgImage = contextPre.getImageData(bg.x, bg.y, CANVAS.W, CANVAS.H);
         contextBg.putImageData(bgImage, 0, 0);
-        for (const enemy of enemies) {
+        for (const enemy of this.floor.enemies) {
             const enemyOnBg = enemy.getXyOnBg(offset);
             enemy.draw(contextBg, BG_CANVAS.LEFT_MARGIN + enemyOnBg.x - bg.x, BG_CANVAS.TOP_MARGIN + enemyOnBg.y - bg.y);
         }
@@ -408,7 +405,7 @@ export class DungeonView {
         const LEFT = 10;
         const TOP = 50;
         const chara = this.model.getChara();
-        const cells = this.floor.getCells();
+        const cells = this.floor.cells;
         const context = this.contexts.ui;
         context.clearRect(LEFT, TOP, WIDTH, WIDTH);
         for (let y = 0; y < cells.length; ++y) {
@@ -446,9 +443,8 @@ export class DungeonView {
         const items = model.getItems();
         const { hpMax, hp, walkCount } = model.getCharaStatus();
         const floor = this.floor;
-        const mappingRate = floor.getMappingRate();
         const hpText = "●".repeat(hp) + "○".repeat(hpMax - hp);
-        const status = `${floor.name}  ${mappingRate}％  ${walkCount}歩  HP${hpText}`;
+        const status = `${floor.name}  ${floor.mappingRate}％  ${walkCount}歩  HP${hpText}`;
         let equipment = "そうび\n";
         for (const { quantity, name } of items) {
             if (quantity > 0)
@@ -462,7 +458,7 @@ export class DungeonView {
         const BLUR = 8;
         const context = this.contexts.dark;
         context.clearRect(0, 0, CANVAS.W + 1, CANVAS.H + 1);
-        const isCompleted = (this.floor.getMappingRate() == 100);
+        const isCompleted = (this.floor.mappingRate == 100);
         if (isCompleted)
             return;
         context.save();
@@ -499,11 +495,10 @@ export class DungeonView {
     animateWalking(nextFunction) {
         const self = this;
         const chara = this.model.getChara();
-        const floor = this.floor;
-        const mappingPoints = floor.getMappingPoints();
+        const { mappingPoints, enemies } = this.floor;
         const ctxPre = this.contexts.preRender;
         chara.nextPattern();
-        for (const enemy of floor.getEnemies())
+        for (const enemy of enemies)
             enemy.nextPattern();
         const FRAME_LENGTH = 7;
         const INTERVAL = 28;
@@ -541,7 +536,7 @@ export class DungeonView {
     preRenderAll() {
         const INVISIBLE_CELL_COLOR = "black";
         const context = this.contexts.preRender;
-        const cells = this.floor.getCells();
+        const cells = this.floor.cells;
         context.fillStyle = INVISIBLE_CELL_COLOR;
         context.fillRect(0, 0, BG_CANVAS.W + 1, BG_CANVAS.H + 1);
         for (let y = 0; y < cells.length; ++y) {

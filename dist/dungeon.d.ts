@@ -18,31 +18,38 @@ export declare class Cell {
     deleteEvent(): number;
     checkEvent(event: Event): Cell;
 }
-interface ReadonlyFloor {
+interface FloorField {
     readonly name: string;
     readonly image: HTMLImageElement;
     readonly bgm: Bgm;
+    readonly cells: readonly (readonly Readonly<Cell>[])[];
+    readonly enemies: readonly Readonly<Enemy>[];
+    readonly mappingRate: number;
+    readonly mappingPoints: readonly Readonly<Point>[];
     getCell(x: number, y: number): Readonly<Cell>;
-    getCells(): readonly (readonly Readonly<Cell>[])[];
-    getEnemies(): readonly Readonly<Enemy>[];
-    getMappingRate(): number;
-    getMappingPoints(): readonly Readonly<Point>[];
 }
-export declare class Floor implements ReadonlyFloor {
-    private readonly cells;
-    private readonly enemies;
+interface FloorMethod {
+    moveEnemy(floorEnemyIndex: number, x: number, y: number): void;
+    deleteEnemy(x: number, y: number): Enemy;
+    updateMappingRate(): boolean;
+    mappingAll(): void;
+    mappingCell(x: number, y: number, stop?: boolean): void;
+    mappingAround(x: number, y: number): void;
+    debugMappingAll(x: number, y: number): void;
+}
+type FloorInterface = FloorField & FloorMethod;
+export declare class Floor implements FloorInterface {
+    readonly cells: readonly (readonly Cell[])[];
+    readonly name: string;
+    readonly image: HTMLImageElement;
+    readonly bgm: Bgm;
+    readonly enemies: Enemy[];
     private mappingMax;
     private mappingCount;
-    private mappingRate;
-    private mappingPoints;
-    readonly name: string;
-    readonly image: HTMLImageElement;
-    readonly bgm: Bgm;
-    getCells(): readonly (readonly Readonly<Cell>[])[];
-    getEnemies(): readonly Readonly<Enemy>[];
-    getMappingRate(): number;
-    getMappingPoints(): readonly Readonly<Point>[];
-    constructor(mapExcelData: FloorExcelData, name: string, image: HTMLImageElement, bgm: Bgm, enemyDesigns: readonly EnemyDesign[]);
+    mappingRate: number;
+    mappingPoints: Point[];
+    private constructor();
+    static create(mapExcelData: FloorExcelData, name: string, image: HTMLImageElement, bgm: Bgm, enemyDesigns: readonly EnemyDesign[]): FloorInterface;
     getCell(x: number, y: number): Readonly<Cell>;
     private _getCell;
     moveEnemy(floorEnemyIndex: number, x: number, y: number): void;
@@ -79,8 +86,8 @@ export declare class DungeonModel implements ReadonlyDungeonModel {
     private cell;
     private completeCount;
     private readonly charaStatus;
-    constructor(chara: MainChara, items: readonly Item[], floors: readonly Floor[], stairsDestinations: readonly Coordinate[], initialCoordinate: Coordinate);
-    getFloor(): ReadonlyFloor;
+    constructor(chara: MainChara, items: readonly Item[], floors: readonly FloorInterface[], stairsDestinations: readonly Coordinate[], initialCoordinate: Coordinate);
+    getFloor(): FloorField;
     getChara(): Readonly<MainChara>;
     getItems(): readonly Readonly<Item>[];
     getCharaStatus(): Readonly<CharaStatus>;
@@ -117,8 +124,8 @@ export declare class DungeonView {
     private readonly contexts;
     private readonly se;
     private readonly rects;
-    constructor(model: ReadonlyDungeonModel, floor: ReadonlyFloor, input: Input, contexts: Contexts, se: SoundEffects);
-    setFloor(floor: ReadonlyFloor): void;
+    constructor(model: ReadonlyDungeonModel, floor: FloorField, input: Input, contexts: Contexts, se: SoundEffects);
+    setFloor(floor: FloorField): void;
     drawAll(): void;
     drawFloor(offset?: number): void;
     drawMap(): void;

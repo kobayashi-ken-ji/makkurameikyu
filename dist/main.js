@@ -62,9 +62,9 @@ class Main {
         ];
         const chara = new MainChara(images.mainChara);
         const floors = [
-            new Floor(DUNGEON_EXCEL_DATA[0], "地下1階", images.bgStone, bgm.stoneFloor, enemyDesigns),
-            new Floor(DUNGEON_EXCEL_DATA[1], "地下2階", images.bgRock, bgm.rockFloor, enemyDesigns),
-            new Floor(DUNGEON_EXCEL_DATA[2], "地下3階", images.bgIce, bgm.iceFloor, enemyDesigns),
+            Floor.create(DUNGEON_EXCEL_DATA[0], "地下1階", images.bgStone, bgm.stoneFloor, enemyDesigns),
+            Floor.create(DUNGEON_EXCEL_DATA[1], "地下2階", images.bgRock, bgm.rockFloor, enemyDesigns),
+            Floor.create(DUNGEON_EXCEL_DATA[2], "地下3階", images.bgIce, bgm.iceFloor, enemyDesigns),
         ];
         const element = document.getElementById("g_canvas3");
         if (!element)
