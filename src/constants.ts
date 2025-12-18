@@ -2,7 +2,7 @@
 // キャンバス・表示画面
 //=============================================================================
 
-// 1セルのサイズ (幅、高さ共通)
+/** 1セルのサイズ (幅、高さ共通) */
 export const CELL_PX  = 32;
 export const CHARA_PX = 44;
 
@@ -43,10 +43,10 @@ export const BG_CANVAS = {
 //      TypeScript 5.0 以降では enum は型安全
 //=============================================================================
 
-// 歩行パターン  (画像シートの x軸)
+/** 歩行パターン  (画像シートの X軸) */
 export const WALK_PATTERN = [1, 0, 1, 2] as const;
 
-// 向き  (画像シートの y軸)
+/** キャラの向き  (画像シートの Y軸) */
 export enum Direction  {
     UP    = 0,
     RIGHT = 1,
@@ -58,10 +58,8 @@ export enum Direction  {
 // ダンジョンのエクセルデータ
 //=============================================================================
 
-/**
- * 階段の行先座標
- */
-export type Coordinate = readonly [floorNum: number, x: number, y: number];
+/** 階段の行先座標 */
+export type Coordinate = readonly [floorIndex: number, x: number, y: number];
 export const STAIRS_DESTINATIONS: readonly Coordinate[] = [
     [1, 15, 2 ],
     [0, 13, 15],
@@ -72,9 +70,7 @@ export const STAIRS_DESTINATIONS: readonly Coordinate[] = [
 ];
 
 
-/**
- * 階層マップデータ (2次元配列)
- */
+/** 階層マップデータ (2次元配列) */
 export type FloorExcelData = readonly(readonly number[])[];
 export const DUNGEON_EXCEL_DATA = [
 

@@ -11,7 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_DESTINATIONS } from './constants.js';
 import { Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue } from './utility.js';
 import { Item, MainChara, EnemyDesign } from './character.js';
-import { Floor, DungeonModel, DungeonView, DungeonScreen, CharaStatus } from './dungeon.js';
+import { Floor, FloorMedia, DungeonModel, DungeonView, DungeonController, CharaStatus } from './dungeon.js';
 class Main {
     constructor() {
         const INITIAL_COORDINATE = [0, 13, 11];
@@ -61,27 +61,32 @@ class Main {
             new EnemyDesign(false, 2, images.enemySlime, "スライムがあらわれた！", "たいまつを投げつけると、逃げていった！", "まとわりつかれた！"),
         ];
         const chara = new MainChara(images.mainChara);
+        const floorMedias = [
+            new FloorMedia("地下1階", images.bgStone, bgm.stoneFloor),
+            new FloorMedia("地下2階", images.bgRock, bgm.rockFloor),
+            new FloorMedia("地下3階", images.bgIce, bgm.iceFloor),
+        ];
         const floors = [
-            Floor.create(DUNGEON_EXCEL_DATA[0], "地下1階", images.bgStone, bgm.stoneFloor, enemyDesigns),
-            Floor.create(DUNGEON_EXCEL_DATA[1], "地下2階", images.bgRock, bgm.rockFloor, enemyDesigns),
-            Floor.create(DUNGEON_EXCEL_DATA[2], "地下3階", images.bgIce, bgm.iceFloor, enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[0], enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[1], enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[2], enemyDesigns),
         ];
         const element = document.getElementById("g_canvas3");
         if (!element)
             throw new Error("ID g_canvas3 の要素を取得できません。");
         const input = new Input(element);
         const model = new DungeonModel(chara, items, floors, STAIRS_DESTINATIONS, INITIAL_COORDINATE);
-        const view = new DungeonView(model, model.getFloor(), input, contexts, se);
-        const screen = new DungeonScreen(model, view, input);
+        const view = new DungeonView(model, floorMedias, input, contexts, se);
+        const controller = new DungeonController(model, view, input);
         this.startScreen = new StartScreen(contexts.ui, images.startScreen, input);
         this.endScreen = new EndScreen(contexts.ui, images.startScreen);
-        this.dungeonScreen = screen;
+        this.dungeonScreen = controller;
         Rect.init(contexts.ui, se.select);
     }
     main() {
         return __awaiter(this, void 0, void 0, function* () {
-            yield ImageLoader.getPromise();
             const { startScreen, endScreen, dungeonScreen } = this;
+            yield ImageLoader.getPromise();
             startScreen.nextFunction = () => dungeonScreen.show();
             dungeonScreen.nextFunction = (charaStatus) => endScreen.show(charaStatus);
             startScreen.show();

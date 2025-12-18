@@ -1,5 +1,5 @@
 // ファイル内容
-//      Item        - アイテム情報
+//      Item        - アイテムデータ
 //      Walker      - キャラ・敵 の親クラス
 //      MainChara   - メインキャラ
 //      EnemyDesign - 敵 (設計)
@@ -12,7 +12,7 @@
 import {CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, Direction} from './constants.js';
 
 //=============================================================================
-// アイテム情報
+// アイテムデータ
 //=============================================================================
 
 export class Item
@@ -29,11 +29,26 @@ export class Item
 
 //=============================================================================
 // 歩行者 クラス (継承元)
-//      - 座標・移動量・向き・歩行パターン を管理
-//      - 描画処理
+//      ・座標・移動量・向き・歩行パターン を管理
+//      ・整合性を維持するための、操作メソッド
+//      ・描画メソッド
 //=============================================================================
 
-abstract class Walker
+/**
+ * 内部を変更できるメソッドを排除
+ * DungeonView に渡す形式
+ */
+export interface ReadonlyWalker {
+    x: number;
+    y: number;
+    direction: Direction;
+    getXyOnBg(offset?: number): {x: number, y: number};
+    nextPattern(): void;
+    draw(context: CanvasRenderingContext2D, left?: number, top?: number): void;
+}
+
+
+abstract class Walker implements ReadonlyWalker
 {
     // 現在のセル座標、移動量
     private _x    = 0;
@@ -72,7 +87,7 @@ abstract class Walker
     }
 
 
-    // 座標指定 (歩行処理、階層移動 などに使用)
+    /** 座標指定 (歩行処理、階層移動 などに使用) */
     setXy(x: number, y: number, direction?: Direction) {
 
         // 移動量 (移動後 - 移動前)
@@ -94,7 +109,7 @@ abstract class Walker
     }
 
 
-    // 歩行パターンを次へ
+    /** 歩行パターンを次へ */
     nextPattern() {
         // 0~3 に限定
         if (this.i==3)  this.i = 0;
@@ -134,15 +149,18 @@ export class MainChara extends Walker
 {
     // 画面上のキャラ描画座標 (px)
     // 主人公のみ画像サイズが異なるため、描画座標を調整
-    private readonly diff    = CHARA_PX - CELL_PX;
-    private readonly screenX = CANVAS.CHARA_X - (this.diff / 2);
-    private readonly screenY = CANVAS.CHARA_Y - this.diff;
+    private readonly screenX: number;
+    private readonly screenY: number;
 
     /**
      * @param image 画像シート
      */
     constructor(image: HTMLImageElement) {
         super(image, CHARA_PX);
+
+        const diff    = CHARA_PX - CELL_PX;
+        this.screenX = CANVAS.CHARA_X - (diff / 2);
+        this.screenY = CANVAS.CHARA_Y - diff;
     }
 
     /**
@@ -159,9 +177,7 @@ export class MainChara extends Walker
 //      EnemyDesign.prototype.generate() 経由で生成される
 //=============================================================================
 
-/**
- * 敵との遭遇イベントの処理結果
- */
+/** 敵との遭遇イベントの処理結果 */
 export enum EnemyResult {
     UNENCOUNTERED,  // 未遭遇
     DODGED,         // 回避
@@ -169,11 +185,23 @@ export enum EnemyResult {
     GAMEOVER,       // 衝突後、キャラのHPが0
 };
 
-export class Enemy extends Walker
+
+/**
+ * 内部を変更できるメソッドを排除
+ * DungeonModel, DungeonView に渡す形式
+ */
+export type ReadonlyEnemy = ReadonlyWalker & {
+    readonly design: EnemyDesign;
+    readonly result: EnemyResult;
+};
+
+
+export class Enemy extends Walker implements ReadonlyEnemy
 {
-    readonly design;
+    readonly design: EnemyDesign;
     result: EnemyResult;
 
+    /** EnemyDesign.generate() から呼び出される */
     constructor(design: EnemyDesign, x: number, y: number) {
 
         super(design.image, CELL_PX);

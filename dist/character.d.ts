@@ -4,7 +4,18 @@ export declare class Item {
     readonly name: string;
     constructor(quantity: number, name: string);
 }
-declare abstract class Walker {
+export interface ReadonlyWalker {
+    x: number;
+    y: number;
+    direction: Direction;
+    getXyOnBg(offset?: number): {
+        x: number;
+        y: number;
+    };
+    nextPattern(): void;
+    draw(context: CanvasRenderingContext2D, left?: number, top?: number): void;
+}
+declare abstract class Walker implements ReadonlyWalker {
     private readonly image;
     private readonly chipSize;
     private _x;
@@ -25,7 +36,6 @@ declare abstract class Walker {
     draw(context: CanvasRenderingContext2D, left: number, top: number): void;
 }
 export declare class MainChara extends Walker {
-    private readonly diff;
     private readonly screenX;
     private readonly screenY;
     constructor(image: HTMLImageElement);
@@ -37,7 +47,11 @@ export declare enum EnemyResult {
     CRASHED = 2,
     GAMEOVER = 3
 }
-export declare class Enemy extends Walker {
+export type ReadonlyEnemy = ReadonlyWalker & {
+    readonly design: EnemyDesign;
+    readonly result: EnemyResult;
+};
+export declare class Enemy extends Walker implements ReadonlyEnemy {
     readonly design: EnemyDesign;
     result: EnemyResult;
     constructor(design: EnemyDesign, x: number, y: number);

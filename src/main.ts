@@ -2,7 +2,7 @@
 
 // ファイルの内容
 //      Main                - ゲーム本体
-//      StartScreen         - ゲーム開始画面
+//      StartScreen         - ゲームスタート画面
 //      EndScreen           - ゲームクリア画面
 //      new Main().main();  - ゲーム実行
 
@@ -16,7 +16,7 @@ from './constants.js';
 import {Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue} from './utility.js';
 import {Item, MainChara, EnemyDesign} from './character.js';
 
-import {Floor, DungeonModel, DungeonView, DungeonScreen, CharaStatus, 
+import {Floor ,FloorMedia, DungeonModel, DungeonView, DungeonController, CharaStatus,
     type Contexts, type SoundEffects} from './dungeon.js';
 
 //=============================================================================
@@ -31,7 +31,7 @@ class Main
 {
     readonly startScreen   : StartScreen;
     readonly endScreen     : EndScreen;
-    readonly dungeonScreen : DungeonScreen;
+    readonly dungeonScreen : DungeonController;  // 一貫性のため、screenと命名
 
     constructor() {
 
@@ -133,11 +133,18 @@ class Main
         // 主人公 (操作キャラ)
         const chara = new MainChara(images.mainChara);
 
-        // ダンジョンの階層データ
-        const floors = [
-            Floor.create(DUNGEON_EXCEL_DATA[0], "地下1階", images.bgStone, bgm.stoneFloor, enemyDesigns),
-            Floor.create(DUNGEON_EXCEL_DATA[1], "地下2階", images.bgRock,  bgm.rockFloor , enemyDesigns),
-            Floor.create(DUNGEON_EXCEL_DATA[2], "地下3階", images.bgIce,   bgm.iceFloor  , enemyDesigns),
+        // ダンジョンのメディアデータ
+        const floorMedias: readonly FloorMedia[] = [
+            new FloorMedia("地下1階", images.bgStone, bgm.stoneFloor),
+            new FloorMedia("地下2階", images.bgRock,  bgm.rockFloor ),
+            new FloorMedia("地下3階", images.bgIce,   bgm.iceFloor  ),
+        ];
+
+        // ダンジョンのマップデータ
+        const floors: readonly Floor[] = [
+            new Floor(DUNGEON_EXCEL_DATA[0], enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[1], enemyDesigns),
+            new Floor(DUNGEON_EXCEL_DATA[2], enemyDesigns),
         ];
 
         // 入力クラス
@@ -146,9 +153,9 @@ class Main
         const input = new Input(element);
 
         // ダンジョン画面関連
-        const model  = new DungeonModel(chara, items, floors, STAIRS_DESTINATIONS, INITIAL_COORDINATE);
-        const view   = new DungeonView(model, model.getFloor(), input, contexts, se);
-        const screen = new DungeonScreen(model, view, input);
+        const model      = new DungeonModel(chara, items, floors, STAIRS_DESTINATIONS, INITIAL_COORDINATE);
+        const view       = new DungeonView(model, floorMedias, input, contexts, se);
+        const controller = new DungeonController(model, view, input);
         
         //---------------------------------------------------------------------
         // フィールド初期化
@@ -156,7 +163,7 @@ class Main
 
         this.startScreen    = new StartScreen(contexts.ui, images.startScreen, input);
         this.endScreen      = new EndScreen  (contexts.ui, images.startScreen);
-        this.dungeonScreen  = screen;
+        this.dungeonScreen  = controller;
 
         Rect.init(contexts.ui, se.select);
     }
@@ -164,11 +171,10 @@ class Main
 
     // ゲーム開始処理 (エントリーポイント)
     async main() {
+        const {startScreen, endScreen, dungeonScreen} = this;
 
         // 画像読込待ち
         await ImageLoader.getPromise();
-
-        const {startScreen, endScreen, dungeonScreen} = this;
 
         // [デバッグ] ゲームクリア画面を表示
         // endScreen.show(); return;
@@ -188,8 +194,8 @@ class Main
 
 class StartScreen
 {
-    // この画面の終了時に実行する処理 (次の画面)
-    nextFunction = ()=>{};
+    /** この画面の終了時に実行する処理 (次の画面) */
+    nextFunction: ()=>void = ()=>{};
 
     /**
      * @param context 描画先
@@ -202,15 +208,19 @@ class StartScreen
         private readonly input  : Input
     ) {}
 
-    // 画面を表示、クリックされたら次の画面へ
+
+    /** ゲームスタート画面を表示 */
     show() {
         const queue = new OnInputQueue(this.input);
         queue.push(()=>this.draw(), 0);
+
+        // クリックされたら次の画面へ遷移
         queue.push(this.nextFunction, 0);
         queue.run();
     }
     
-    // 画面を描画
+
+    /** 画面を描画 */
     private draw() {
         // キャンバス設定
         const context = this.context;
@@ -259,7 +269,6 @@ class EndScreen
     /**
      * @param context 描画先
      * @param bgImage 背景画像
-     * @param chara   ゲームのリザルトを所持しているクラス
      */
     constructor(
         private readonly context: CanvasRenderingContext2D,
@@ -267,7 +276,7 @@ class EndScreen
     ) {}
 
     
-    // 画面を表示
+    /** ゲームクリア画面を表示 */
     show(charaStatus: Readonly<CharaStatus>) {
         const {walkCount, hpMax, hp, safeCount} = charaStatus;
 

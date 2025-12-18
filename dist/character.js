@@ -52,9 +52,9 @@ class Walker {
 export class MainChara extends Walker {
     constructor(image) {
         super(image, CHARA_PX);
-        this.diff = CHARA_PX - CELL_PX;
-        this.screenX = CANVAS.CHARA_X - (this.diff / 2);
-        this.screenY = CANVAS.CHARA_Y - this.diff;
+        const diff = CHARA_PX - CELL_PX;
+        this.screenX = CANVAS.CHARA_X - (diff / 2);
+        this.screenY = CANVAS.CHARA_Y - diff;
     }
     draw(context) {
         super.draw(context, this.screenX, this.screenY);
