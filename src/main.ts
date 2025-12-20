@@ -14,10 +14,10 @@ import {CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_DESTINATIONS, type Coordin
 from './constants.js';
 
 import {Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue} from './utility.js';
-import {Item, MainChara, EnemyDesign} from './character.js';
+import {MainChara, EnemyDesign} from './character.js';
 
-import {Floor ,FloorMedia, DungeonModel, DungeonView, DungeonController, CharaStatus,
-    type Contexts, type SoundEffects} from './dungeon.js';
+import {Item, Floor ,FloorMedia, DungeonModel, DungeonView, DungeonController,
+    type CharaStatus, type Contexts, type SoundEffects} from './dungeon.js';
 
 //=============================================================================
 // ゲーム本体
@@ -278,7 +278,7 @@ class EndScreen
     
     /** ゲームクリア画面を表示 */
     show(charaStatus: Readonly<CharaStatus>) {
-        const {walkCount, hpMax, hp, safeCount} = charaStatus;
+        const {walkingCount, hpMax, hp, dodgedCount} = charaStatus;
 
         // キャンバス設定
         const context = this.context;
@@ -294,9 +294,9 @@ class EndScreen
 
         const texts = {
             title   : "ゲームクリア",
-            walk    : "歩数 : "          + walkCount,
+            walk    : "歩数 : "          + walkingCount,
             damage  : "受けたダメージ : " + (hpMax - hp),
-            item    : "アイテム消費数 : " + safeCount,
+            item    : "アイテム消費数 : " + dodgedCount,
         };
         
         // タイトル

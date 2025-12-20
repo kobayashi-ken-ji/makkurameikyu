@@ -1,10 +1,12 @@
-import { CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, Direction } from './constants.js';
-export class Item {
-    constructor(quantity, name) {
-        this.quantity = quantity;
-        this.name = name;
-    }
-}
+import { CELL_PX, CHARA_PX, CANVAS } from './constants.js';
+export const WALK_PATTERN = [1, 0, 1, 2];
+export var Direction;
+(function (Direction) {
+    Direction[Direction["UP"] = 0] = "UP";
+    Direction[Direction["RIGHT"] = 1] = "RIGHT";
+    Direction[Direction["DOWN"] = 2] = "DOWN";
+    Direction[Direction["LEFT"] = 3] = "LEFT";
+})(Direction || (Direction = {}));
 class Walker {
     constructor(image, chipSize) {
         this.image = image;
@@ -36,7 +38,7 @@ class Walker {
                         (this.moveX > 0) ? Direction.RIGHT :
                             this.direction;
     }
-    nextPattern() {
+    nextWalkingPattern() {
         if (this.i == 3)
             this.i = 0;
         else
@@ -60,20 +62,11 @@ export class MainChara extends Walker {
         super.draw(context, this.screenX, this.screenY);
     }
 }
-export var EnemyResult;
-(function (EnemyResult) {
-    EnemyResult[EnemyResult["UNENCOUNTERED"] = 0] = "UNENCOUNTERED";
-    EnemyResult[EnemyResult["DODGED"] = 1] = "DODGED";
-    EnemyResult[EnemyResult["CRASHED"] = 2] = "CRASHED";
-    EnemyResult[EnemyResult["GAMEOVER"] = 3] = "GAMEOVER";
-})(EnemyResult || (EnemyResult = {}));
-;
 export class Enemy extends Walker {
     constructor(design, x, y) {
         super(design.image, CELL_PX);
         this.setXy(x, y, Direction.DOWN);
         this.design = design;
-        this.result = EnemyResult.UNENCOUNTERED;
     }
 }
 export class EnemyDesign {

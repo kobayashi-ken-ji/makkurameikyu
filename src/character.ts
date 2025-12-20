@@ -9,22 +9,21 @@
 // インポート
 //=============================================================================
 
-import {CELL_PX, CHARA_PX, CANVAS, WALK_PATTERN, Direction} from './constants.js';
+import {CELL_PX, CHARA_PX, CANVAS} from './constants.js';
 
 //=============================================================================
-// アイテムデータ
+// 画像シートの X軸、Y軸
 //=============================================================================
 
-export class Item
-{
-    /**
-     * @param quantity 所持数
-     * @param name     アイテム名
-     */
-    constructor(
-        public quantity: number,
-        public readonly name: string
-    ) {}
+/** 歩行パターン [直立 → 左足前 → 直立 → 右足前]  (画像シートの X軸) */
+export const WALK_PATTERN = [1, 0, 1, 2] as const;
+
+/** キャラの向き  (画像シートの Y軸) */
+export enum Direction  {
+    UP    = 0,
+    RIGHT = 1,
+    DOWN  = 2,
+    LEFT  = 3,
 }
 
 //=============================================================================
@@ -34,16 +33,13 @@ export class Item
 //      ・描画メソッド
 //=============================================================================
 
-/**
- * 内部を変更できるメソッドを排除
- * DungeonView に渡す形式
- */
+/** 座標を変更できるメソッドを排除  */
 export interface ReadonlyWalker {
     x: number;
     y: number;
     direction: Direction;
     getXyOnBg(offset?: number): {x: number, y: number};
-    nextPattern(): void;
+    nextWalkingPattern(): void;
     draw(context: CanvasRenderingContext2D, left?: number, top?: number): void;
 }
 
@@ -76,8 +72,8 @@ abstract class Walker implements ReadonlyWalker
 
 
     /**
-     * 背景上の座標(px) = 移動後の位置 - 歩行アニメーション用補正
-     * @param offset  歩行アニメーションの際にずらすpx数
+     * 背景上の座標(px)
+     * @param offset ずらすpx数 (歩行アニメ用 / ずらす方向は、歩行履歴から自動判定)
      */
     getXyOnBg(offset: number = 0) {
         return {
@@ -91,26 +87,26 @@ abstract class Walker implements ReadonlyWalker
     setXy(x: number, y: number, direction?: Direction) {
 
         // 移動量 (移動後 - 移動前)
-        this.moveX  = x - this._x;
-        this.moveY  = y - this._y;
+        this.moveX = x - this._x;
+        this.moveY = y - this._y;
 
         // 新座標
-        this._x   = x;
-        this._y   = y;
+        this._x = x;
+        this._y = y;
 
-        // 向き (移動量が0の場合は変更なし)
+        // 向き (移動量が0 → 変更しない)
         this.direction = 
             direction ??
             (this.moveY < 0)  ? Direction.UP    :
             (this.moveY > 0)  ? Direction.DOWN  :
             (this.moveX < 0)  ? Direction.LEFT  :
             (this.moveX > 0)  ? Direction.RIGHT :
-            this.direction;     // 移動なし → 方角もそのまま
+            this.direction;
     }
 
 
-    /** 歩行パターンを次へ */
-    nextPattern() {
+    /** 歩行パターンを次へ (直立 → 左足前 → 直立 → 右足前) */
+    nextWalkingPattern() {
         // 0~3 に限定
         if (this.i==3)  this.i = 0;
         else this.i++;
@@ -158,7 +154,7 @@ export class MainChara extends Walker
     constructor(image: HTMLImageElement) {
         super(image, CHARA_PX);
 
-        const diff    = CHARA_PX - CELL_PX;
+        const diff   = CHARA_PX - CELL_PX;
         this.screenX = CANVAS.CHARA_X - (diff / 2);
         this.screenY = CANVAS.CHARA_Y - diff;
     }
@@ -174,32 +170,16 @@ export class MainChara extends Walker
 
 //=============================================================================
 // 敵クラス  (実体)
-//      EnemyDesign.prototype.generate() 経由で生成される
+//      EnemyDesign.generate() 経由で生成される
 //=============================================================================
 
-/** 敵との遭遇イベントの処理結果 */
-export enum EnemyResult {
-    UNENCOUNTERED,  // 未遭遇
-    DODGED,         // 回避
-    CRASHED,        // 衝突
-    GAMEOVER,       // 衝突後、キャラのHPが0
-};
-
-
-/**
- * 内部を変更できるメソッドを排除
- * DungeonModel, DungeonView に渡す形式
- */
-export type ReadonlyEnemy = ReadonlyWalker & {
-    readonly design: EnemyDesign;
-    readonly result: EnemyResult;
-};
+/** 座標を変更できるメソッドを排除 */
+export type ReadonlyEnemy = ReadonlyWalker & {readonly design: EnemyDesign;};
 
 
 export class Enemy extends Walker implements ReadonlyEnemy
 {
     readonly design: EnemyDesign;
-    result: EnemyResult;
 
     /** EnemyDesign.generate() から呼び出される */
     constructor(design: EnemyDesign, x: number, y: number) {
@@ -207,7 +187,6 @@ export class Enemy extends Walker implements ReadonlyEnemy
         super(design.image, CELL_PX);
         this.setXy(x, y, Direction.DOWN);
         this.design = design;
-        this.result = EnemyResult.UNENCOUNTERED;
     }
 }
 
@@ -239,7 +218,7 @@ export class EnemyDesign
      * Enemyインスタンスを生成
      * @param x 初期座標X
      * @param y 初期座標Y
-     * @returns 敵の実体インスタンス
+     * @returns 敵の実体
      */
     generate(x: number, y: number): Enemy {
         return new Enemy(this, x, y);

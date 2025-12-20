@@ -7,9 +7,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { CELL_PX, CANVAS, BG_CANVAS, Direction } from './constants.js';
+import { CELL_PX, CANVAS, BG_CANVAS } from './constants.js';
 import { Rect, Bgm, Point, Triangle, Input, OnInputQueue } from './utility.js';
-import { Item, MainChara, EnemyDesign, Enemy, EnemyResult } from './character.js';
+import { Direction, MainChara, EnemyDesign, Enemy } from './character.js';
 var Event;
 (function (Event) {
     Event[Event["NONE"] = 1] = "NONE";
@@ -34,11 +34,17 @@ class IndexError2D extends Error {
         super(`二次元配列の要素を取得できませんでした。 x:${x}, y:${y}`);
     }
 }
+export class Item {
+    constructor(quantity, name) {
+        this.quantity = quantity;
+        this.name = name;
+    }
+}
 export class Cell {
     constructor(excelData) {
-        const arr = excelData.toString().split("");
-        if (arr.length != 4)
+        if (!(1000 <= excelData && excelData <= 9999))
             throw new Error(`引数${excelData}は4桁ではありません。`);
+        const arr = excelData.toString().split("");
         this.event = Number(arr[0]);
         this.param = Number(arr[1]);
         this.chipX = Number(arr[2]) * CELL_PX;
@@ -48,16 +54,17 @@ export class Cell {
 }
 Cell.ROAD_CHIP = { X: 0, Y: 5 * CELL_PX };
 export class Floor {
-    get mappingRate() { return this._mappingRate; }
-    get mappingPoints() { return this._mappingPoints; }
     get enemies() { return this._enemies; }
     get cells() { return this._cells; }
+    get mappingPoints() { return this._mappingPoints; }
+    get mappingRate() {
+        return Math.floor(this.mappingCount / this.mappingMax * 100);
+    }
     constructor(mapExcelData, enemyDesigns) {
         var _a;
         this._enemies = [];
         this.mappingMax = 0;
         this.mappingCount = 0;
-        this._mappingRate = 0;
         this._mappingPoints = [];
         const cells = this._cells =
             mapExcelData.map(line => line.map(num => new Cell(num)));
@@ -133,15 +140,6 @@ export class Floor {
         }
         throw new Error(`指定座標に敵は存在しません  x:${x}, y:${y}`);
     }
-    updateMappingRate() {
-        if (this._mappingRate === 100)
-            return false;
-        this._mappingRate = Math.floor(this.mappingCount / this.mappingMax * 100);
-        const isCompleted = (this._mappingRate === 100);
-        if (isCompleted)
-            this.mappingAll();
-        return isCompleted;
-    }
     mappingAll() {
         const cells = this._cells;
         for (let y = 0; y < cells.length; ++y) {
@@ -185,21 +183,12 @@ export class Floor {
         this.mappingCell(right, down);
     }
     debugMappingAll(x, y) {
-        if (this._mappingRate == 100)
+        if (this.mappingRate == 100)
             return;
         this.mappingAll();
         const cell = this._getCell(x, y);
         cell.mapped = false;
         this.mappingCount--;
-        this.updateMappingRate();
-    }
-}
-export class CharaStatus {
-    constructor() {
-        this.hpMax = 3;
-        this.hp = this.hpMax;
-        this.walkCount = 0;
-        this.safeCount = 0;
     }
 }
 export class DungeonModel {
@@ -209,7 +198,12 @@ export class DungeonModel {
         this.floors = floors;
         this.stairsDestinations = stairsDestinations;
         this.completeCount = 0;
-        this._charaStatus = new CharaStatus();
+        this._charaStatus = {
+            hpMax: 3,
+            hp: 3,
+            walkingCount: 0,
+            dodgedCount: 0,
+        };
         this.changeFloor(...initialCoordinate);
     }
     get floor() { return this._floor; }
@@ -231,31 +225,29 @@ export class DungeonModel {
         chara.direction = Direction.DOWN;
         floor.mappingAround(x, y);
         floor.mappingCell(x, y);
-        floor.updateMappingRate();
     }
     walkAll(direction) {
-        const _floor = this._floor;
-        const result = {
-            isWall: false,
-            event: Event.NONE,
-            isFloorCompleted: false,
-            isGameCompleted: false,
-        };
+        const floor = this._floor;
+        let event = Event.WALL;
+        let isFloorCompleted = false;
+        let isGameCompleted = false;
+        const beforeMapRate = floor.mappingRate;
         const cell = this.walkChara(direction);
-        result.isWall = (cell.event == Event.WALL);
-        if (result.isWall)
-            return result;
-        _floor.enemies.forEach((enemy, index) => {
+        if (cell.event == Event.WALL)
+            return { event, isFloorCompleted, isGameCompleted };
+        floor.enemies.forEach((enemy, index) => {
             const { x, y } = this.getEnemyDestination(enemy);
-            _floor.moveEnemy(index, x, y);
+            floor.moveEnemy(index, x, y);
         });
-        result.isFloorCompleted = _floor.updateMappingRate();
-        if (result.isFloorCompleted) {
+        const afterMapRate = floor.mappingRate;
+        isFloorCompleted = (beforeMapRate != 100 && afterMapRate == 100);
+        if (isFloorCompleted) {
+            floor.mappingAll();
             this.completeCount++;
-            result.isGameCompleted = (this.completeCount == this.floors.length);
+            isGameCompleted = (this.completeCount == this.floors.length);
         }
-        result.event = cell.event;
-        return result;
+        event = cell.event;
+        return { event, isFloorCompleted, isGameCompleted };
     }
     walkChara(direction) {
         const { _chara, _floor, _charaStatus } = this;
@@ -271,10 +263,9 @@ export class DungeonModel {
         else if (direction == Direction.RIGHT)
             x += 1;
         const cell = _floor.getCell(x, y);
-        const isWall = (cell.event == Event.WALL);
-        if (!isWall) {
+        if (cell.event != Event.WALL) {
             _chara.setXy(x, y);
-            _charaStatus.walkCount++;
+            _charaStatus.walkingCount++;
             _floor.mappingAround(x, y);
         }
         return cell;
@@ -282,6 +273,7 @@ export class DungeonModel {
     getEnemyDestination(enemy) {
         const { _chara, _floor } = this;
         const { x, y } = enemy;
+        const cells = _floor.cells;
         if (x == _chara.x && y == _chara.y)
             return new Point(x, y);
         const points = [
@@ -289,7 +281,7 @@ export class DungeonModel {
             new Point(x, y + 1),
             new Point(x - 1, y),
             new Point(x + 1, y),
-        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = _floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == Event.NONE); });
+        ].filter(({ x, y }) => { var _a, _b; return (((_b = (_a = cells[y]) === null || _a === void 0 ? void 0 : _a[x]) === null || _b === void 0 ? void 0 : _b.event) == Event.NONE); });
         if (points.length == 0)
             return new Point(x, y);
         if (enemy.design.isChaser) {
@@ -306,16 +298,16 @@ export class DungeonModel {
             return minPoint;
         }
         else {
-            const i = Math.floor(Math.random() * points.length);
-            const point = points[i];
+            const index = Math.floor(Math.random() * points.length);
+            const point = points[index];
             if (!point)
-                throw new IndexError(i);
-            return points[i];
+                throw new IndexError(index);
+            return point;
         }
     }
     treasureEvent() {
-        const { chara, _floor, _items } = this;
-        const index = _floor.openTreasure(chara.x, chara.y);
+        const { _chara, _floor, _items } = this;
+        const index = _floor.openTreasure(_chara.x, _chara.y);
         const item = _items[index];
         if (!item)
             throw new IndexError(index);
@@ -323,34 +315,35 @@ export class DungeonModel {
         return item;
     }
     stairsEvent() {
-        const { chara, _floor, stairsDestinations } = this;
-        const index = _floor.getStairsParam(chara.x, chara.y);
+        const { _chara, _floor, stairsDestinations } = this;
+        const index = _floor.getStairsParam(_chara.x, _chara.y);
         const stairs = stairsDestinations[index];
         if (!stairs)
             throw new IndexError(index);
         const [floorIndex, x, y] = stairs;
         this.changeFloor(floorIndex, x, y);
-        return floorIndex;
+        return;
     }
     enemyEvent() {
-        const { chara, _charaStatus, _floor, _items } = this;
-        const enemy = _floor.deleteEnemy(chara.x, chara.y);
+        const { _chara, _charaStatus, _floor, _items } = this;
+        const enemy = _floor.deleteEnemy(_chara.x, _chara.y);
+        const enemyDesign = enemy.design;
+        let isDodged = false;
+        let isGameOver = false;
         const index = enemy.design.dodgingItem;
         const item = _items[index];
         if (!item)
             throw new IndexError(index);
-        if (item.quantity > 0) {
+        if (item.quantity >= 1) {
             item.quantity--;
-            _charaStatus.safeCount++;
-            enemy.result = EnemyResult.DODGED;
+            _charaStatus.dodgedCount++;
+            isDodged = true;
         }
         else {
             _charaStatus.hp--;
-            enemy.result = (_charaStatus.hp == 0)
-                ? EnemyResult.GAMEOVER
-                : EnemyResult.CRASHED;
+            isGameOver = (_charaStatus.hp == 0);
         }
-        return enemy;
+        return { enemyDesign, isDodged, isGameOver };
     }
 }
 export class FloorMedia {
@@ -376,12 +369,13 @@ export class DungeonView {
             left: new Rect(10, 350, 60, 60, 20, 20, "◀"),
             right: new Rect(130, 350, 60, 60, 20, 20, "▶"),
         };
-        this.changeFloor(model.floorIndex);
+        this.changeFloorMedia();
     }
-    changeFloor(floorIndex) {
-        const media = this.floorMedias[floorIndex];
+    changeFloorMedia() {
+        const index = this.model.floorIndex;
+        const media = this.floorMedias[index];
         if (!media)
-            throw new IndexError(floorIndex);
+            throw new IndexError(index);
         this.floorMedia = media;
     }
     drawAll() {
@@ -449,11 +443,11 @@ export class DungeonView {
     drawStatus() {
         const rects = this.rects;
         const { items, charaStatus, floor } = this.model;
-        const { hpMax, hp, walkCount } = charaStatus;
+        const { hpMax, hp, walkingCount } = charaStatus;
         const { mappingRate } = floor;
         const floorName = this.floorMedia.name;
         const hpText = "●".repeat(hp) + "○".repeat(hpMax - hp);
-        const status = `${floorName}  ${mappingRate}％  ${walkCount}歩  HP${hpText}`;
+        const status = `${floorName}  ${mappingRate}％  ${walkingCount}歩  HP${hpText}`;
         let equipment = "そうび\n";
         for (const { quantity, name } of items) {
             if (quantity > 0)
@@ -500,15 +494,16 @@ export class DungeonView {
     drawDungeonScreen() {
         this.floorMedia.bgm.play();
         this.preRenderAll();
+        this.drawAll();
     }
     walkingAnimation(nextFunction) {
         const self = this;
         const { chara, floor } = this.model;
         const { mappingPoints, enemies } = floor;
         const ctxPre = this.contexts.preRender;
-        chara.nextPattern();
+        chara.nextWalkingPattern();
         for (const enemy of enemies)
-            enemy.nextPattern();
+            enemy.nextWalkingPattern();
         const FRAME_LENGTH = 7;
         const INTERVAL = 28;
         const FRAME_PX = CELL_PX / FRAME_LENGTH;
@@ -554,8 +549,11 @@ export class DungeonView {
         }
     }
     preRenderCell(x, y) {
+        var _a;
         const { floorMedia, contexts, model } = this;
-        const cell = model.floor.getCell(x, y);
+        const cell = (_a = model.floor.cells[y]) === null || _a === void 0 ? void 0 : _a[x];
+        if (!cell)
+            throw new IndexError2D(x, y);
         const { mapped, chipX, chipY } = cell;
         if (!mapped)
             return;
@@ -612,14 +610,13 @@ export class DungeonView {
             queue.run();
         });
     }
-    enemyEvent(enemy) {
+    enemyEvent(result) {
         return new Promise(resolve => {
-            const result = enemy.result;
-            const { encountText, dodgedText, damageText } = enemy.design;
+            const { encountText, dodgedText, damageText } = result.enemyDesign;
             const { input, se } = this;
             const queue = new OnInputQueue(input);
             this.pushMessage(queue, encountText, se.encount);
-            if (result == EnemyResult.DODGED)
+            if (result.isDodged)
                 this.pushMessage(queue, dodgedText, se.useItem);
             else {
                 queue.push(() => {
@@ -634,7 +631,7 @@ export class DungeonView {
                     }, 120);
                 }, 850);
             }
-            if (result == EnemyResult.GAMEOVER) {
+            if (result.isGameOver) {
                 this.pushMessage(queue, "体力が尽きてしまった！", se.gameover, 3000, true);
                 this.pushMessage(queue, "-  ゲームオーバー  -", null, 1000);
             }
@@ -654,14 +651,14 @@ export class DungeonController {
             left: new Triangle(new Point(100, 380), new Point(10, 290), new Point(10, 470)),
             right: new Triangle(new Point(100, 380), new Point(190, 290), new Point(190, 470)),
         };
-        view.changeFloor(model.floorIndex);
+        view.changeFloorMedia();
     }
     show() {
         const view = this.view;
         view.floorChangeScreen();
         setTimeout(() => {
             view.drawDungeonScreen();
-            this.drawAndInputStandby();
+            this.inputStandby();
         }, 1500);
     }
     inputStandby() {
@@ -680,8 +677,8 @@ export class DungeonController {
                 return;
             }
             const result = model.walkAll(direction);
-            const { isWall, event, isFloorCompleted, isGameCompleted } = result;
-            if (isWall) {
+            const { event, isFloorCompleted, isGameCompleted } = result;
+            if (event == Event.WALL) {
                 view.wallEvent();
                 this.inputStandby();
                 return;
@@ -695,13 +692,13 @@ export class DungeonController {
                 view.drawMap();
                 yield view.floorCompleteEvent();
                 view.drawAll();
-                if (isGameCompleted) {
-                    yield view.gameCompleteEvent();
-                    if (!this.nextFunction)
-                        throw new Error("遷移先の画面が未設定です。");
-                    this.nextFunction(model.charaStatus);
-                    return;
-                }
+            }
+            if (isGameCompleted) {
+                yield view.gameCompleteEvent();
+                if (!this.nextFunction)
+                    throw new Error("遷移先の画面が未設定です。");
+                this.nextFunction(model.charaStatus);
+                return;
             }
             switch (event) {
                 case Event.NONE:
@@ -713,14 +710,14 @@ export class DungeonController {
                     this.drawAndInputStandby();
                     return;
                 case Event.STAIRS:
-                    const floorIndex = model.stairsEvent();
-                    view.changeFloor(floorIndex);
+                    model.stairsEvent();
+                    view.changeFloorMedia();
                     setTimeout(() => this.show(), 200);
                     return;
                 case Event.ENEMY:
-                    const enemy = model.enemyEvent();
-                    yield view.enemyEvent(enemy);
-                    if (enemy.result == EnemyResult.GAMEOVER)
+                    const result = model.enemyEvent();
+                    yield view.enemyEvent(result);
+                    if (result.isGameOver)
                         location.reload();
                     else
                         this.drawAndInputStandby();

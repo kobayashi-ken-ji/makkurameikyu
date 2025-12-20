@@ -1,3 +1,5 @@
+// 定数の定義ファイル
+
 //=============================================================================
 // キャンバス・表示画面
 //=============================================================================
@@ -7,52 +9,24 @@ export const CELL_PX  = 32;
 export const CHARA_PX = 44;
 
 
-/**
- * キャンバスのサイズ
- * @param W         幅   (10セル分)
- * @param H         高さ (15セル分)
- * @param CHARA_X   主人公の描画座標X
- * @param CHARA_Y   主人公の描画座標Y
- */
+/** キャンバスのサイズ */
 export const CANVAS = {
-    W       : 320,
-    H       : 480,
-    CHARA_X : 5 * CELL_PX,
-    CHARA_Y : 5 * CELL_PX,
+    W       : 320,          // 幅   (10セル分)
+    H       : 480,          // 高さ (15セル分)
+    CHARA_X : 5 * CELL_PX,  // 主人公の描画座標X
+    CHARA_Y : 5 * CELL_PX,  // 主人公の描画座標Y
 
 } as const;
 
 
-/**
- * 背景プリレンダ用 キャンバスサイズ
- * @param W             幅   (描画横幅 + 左右余白)
- * @param H             高さ (描画縦幅 + 上下余白)
- * @param LEFT_MARGIN   左余白の幅
- * @param TOP_MARGIN    上余白の幅
- */
+/** 背景プリレンダ用 キャンバスサイズ */
 export const BG_CANVAS = {
-    W           : (32 * CELL_PX) + CANVAS.W,
-    H           : (32 * CELL_PX) + CANVAS.H,
-    LEFT_MARGIN : CANVAS.CHARA_X,
-    TOP_MARGIN  : CANVAS.CHARA_Y,
+    W           : (32 * CELL_PX) + CANVAS.W,    // 幅   (描画横幅 + 左右余白)
+    H           : (32 * CELL_PX) + CANVAS.H,    // 高さ (描画縦幅 + 上下余白)
+    LEFT_MARGIN : CANVAS.CHARA_X,               // 左余白の幅
+    TOP_MARGIN  : CANVAS.CHARA_Y,               // 上余白の幅
     
 } as const;
-
-//=============================================================================
-// 画像シートから、キャラチップを取得
-//      TypeScript 5.0 以降では enum は型安全
-//=============================================================================
-
-/** 歩行パターン  (画像シートの X軸) */
-export const WALK_PATTERN = [1, 0, 1, 2] as const;
-
-/** キャラの向き  (画像シートの Y軸) */
-export enum Direction  {
-    UP    = 0,
-    RIGHT = 1,
-    DOWN  = 2,
-    LEFT  = 3,
-}
 
 //=============================================================================
 // ダンジョンのエクセルデータ

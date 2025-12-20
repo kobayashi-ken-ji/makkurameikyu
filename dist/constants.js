@@ -12,14 +12,6 @@ export const BG_CANVAS = {
     LEFT_MARGIN: CANVAS.CHARA_X,
     TOP_MARGIN: CANVAS.CHARA_Y,
 };
-export const WALK_PATTERN = [1, 0, 1, 2];
-export var Direction;
-(function (Direction) {
-    Direction[Direction["UP"] = 0] = "UP";
-    Direction[Direction["RIGHT"] = 1] = "RIGHT";
-    Direction[Direction["DOWN"] = 2] = "DOWN";
-    Direction[Direction["LEFT"] = 3] = "LEFT";
-})(Direction || (Direction = {}));
 export const STAIRS_DESTINATIONS = [
     [1, 15, 2],
     [0, 13, 15],

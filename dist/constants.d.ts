@@ -12,13 +12,6 @@ export declare const BG_CANVAS: {
     readonly LEFT_MARGIN: number;
     readonly TOP_MARGIN: number;
 };
-export declare const WALK_PATTERN: readonly [1, 0, 1, 2];
-export declare enum Direction {
-    UP = 0,
-    RIGHT = 1,
-    DOWN = 2,
-    LEFT = 3
-}
 export type Coordinate = readonly [floorIndex: number, x: number, y: number];
 export declare const STAIRS_DESTINATIONS: readonly Coordinate[];
 export type FloorExcelData = readonly (readonly number[])[];

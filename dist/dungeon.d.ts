@@ -1,12 +1,17 @@
-import { Direction, type Coordinate, type FloorExcelData } from './constants.js';
+import { type Coordinate, type FloorExcelData } from './constants.js';
 import { Bgm, Point, Input } from './utility.js';
-import { Item, MainChara, EnemyDesign, Enemy, type ReadonlyWalker, type ReadonlyEnemy } from './character.js';
+import { Direction, MainChara, EnemyDesign, Enemy, type ReadonlyWalker, type ReadonlyEnemy } from './character.js';
 declare enum Event {
     NONE = 1,
     WALL = 2,
     STAIRS = 3,
     TREASURE = 4,
     ENEMY = 9
+}
+export declare class Item {
+    quantity: number;
+    readonly name: string;
+    constructor(quantity: number, name: string);
 }
 export declare class Cell {
     event: Event;
@@ -20,24 +25,45 @@ export declare class Cell {
         readonly Y: number;
     };
 }
+interface WalkingResult {
+    readonly event: Event;
+    readonly isFloorCompleted: boolean;
+    readonly isGameCompleted: boolean;
+}
+interface EnemyResult {
+    readonly enemyDesign: EnemyDesign;
+    readonly isDodged: boolean;
+    readonly isGameOver: boolean;
+}
+export interface CharaStatus {
+    readonly hpMax: number;
+    hp: number;
+    walkingCount: number;
+    dodgedCount: number;
+}
 interface ReadonlyFloor {
     readonly cells: readonly (readonly Readonly<Cell>[])[];
     readonly enemies: readonly ReadonlyEnemy[];
     readonly mappingRate: number;
     readonly mappingPoints: readonly Readonly<Point>[];
-    getCell(x: number, y: number, event?: Event): Readonly<Cell>;
+}
+interface ReadonlyDungeonModel {
+    readonly chara: ReadonlyWalker;
+    readonly charaStatus: Readonly<CharaStatus>;
+    readonly items: readonly Readonly<Item>[];
+    readonly floor: ReadonlyFloor;
+    readonly floorIndex: number;
 }
 export declare class Floor implements ReadonlyFloor {
     private readonly _cells;
     private readonly _enemies;
     private mappingMax;
     private mappingCount;
-    private _mappingRate;
     private _mappingPoints;
-    get mappingRate(): number;
-    get mappingPoints(): readonly Readonly<Point>[];
     get enemies(): readonly ReadonlyEnemy[];
     get cells(): readonly (readonly Readonly<Cell>[])[];
+    get mappingPoints(): readonly Readonly<Point>[];
+    get mappingRate(): number;
     constructor(mapExcelData: FloorExcelData, enemyDesigns: readonly EnemyDesign[]);
     getCell(x: number, y: number, event?: Event): Readonly<Cell>;
     private _getCell;
@@ -45,30 +71,10 @@ export declare class Floor implements ReadonlyFloor {
     getStairsParam(x: number, y: number): number;
     moveEnemy(floorEnemyIndex: number, x: number, y: number): void;
     deleteEnemy(x: number, y: number): Enemy;
-    updateMappingRate(): boolean;
     mappingAll(): void;
     mappingCell(x: number, y: number, stop?: boolean): void;
     mappingAround(x: number, y: number): void;
     debugMappingAll(x: number, y: number): void;
-}
-export declare class CharaStatus {
-    readonly hpMax = 3;
-    hp: number;
-    walkCount: number;
-    safeCount: number;
-}
-interface WalkingResult {
-    isWall: boolean;
-    event: Event;
-    isFloorCompleted: boolean;
-    isGameCompleted: boolean;
-}
-interface ReadonlyDungeonModel {
-    chara: ReadonlyWalker;
-    items: readonly Readonly<Item>[];
-    charaStatus: Readonly<CharaStatus>;
-    floor: ReadonlyFloor;
-    floorIndex: number;
 }
 export declare class DungeonModel implements ReadonlyDungeonModel {
     private readonly _chara;
@@ -81,17 +87,17 @@ export declare class DungeonModel implements ReadonlyDungeonModel {
     private readonly _charaStatus;
     constructor(_chara: MainChara, _items: readonly Item[], floors: readonly Floor[], stairsDestinations: readonly Coordinate[], initialCoordinate: Coordinate);
     get floor(): ReadonlyFloor;
-    get chara(): Readonly<MainChara>;
+    get chara(): ReadonlyWalker;
     get items(): readonly Readonly<Item>[];
     get charaStatus(): Readonly<CharaStatus>;
     get floorIndex(): number;
     changeFloor(floorIndex: number, x: number, y: number): void;
-    walkAll(direction: Direction): Readonly<WalkingResult>;
-    walkChara(direction: Direction): Cell;
+    walkAll(direction: Direction): WalkingResult;
+    private walkChara;
     private getEnemyDestination;
     treasureEvent(): Readonly<Item>;
-    stairsEvent(): number;
-    enemyEvent(): Readonly<Enemy>;
+    stairsEvent(): void;
+    enemyEvent(): EnemyResult;
 }
 export declare class FloorMedia {
     readonly name: string;
@@ -126,7 +132,7 @@ export declare class DungeonView {
     private readonly rects;
     private floorMedia;
     constructor(model: ReadonlyDungeonModel, floorMedias: readonly FloorMedia[], input: Input, contexts: Contexts, se: SoundEffects);
-    changeFloor(floorIndex: number): void;
+    changeFloorMedia(): void;
     drawAll(): void;
     drawFloor(offset?: number): void;
     drawMap(): void;
@@ -143,7 +149,7 @@ export declare class DungeonView {
     floorCompleteEvent(): Promise<void>;
     gameCompleteEvent(): Promise<void>;
     treasureEvent(item: Readonly<Item>): Promise<void>;
-    enemyEvent(enemy: Readonly<Enemy>): Promise<void>;
+    enemyEvent(result: EnemyResult): Promise<void>;
 }
 export declare class DungeonController {
     readonly model: Readonly<DungeonModel>;

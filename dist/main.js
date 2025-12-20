@@ -10,8 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { CANVAS, BG_CANVAS, DUNGEON_EXCEL_DATA, STAIRS_DESTINATIONS } from './constants.js';
 import { Rect, Sound, Bgm, ImageLoader, Context2D, Input, OnInputQueue } from './utility.js';
-import { Item, MainChara, EnemyDesign } from './character.js';
-import { Floor, FloorMedia, DungeonModel, DungeonView, DungeonController, CharaStatus } from './dungeon.js';
+import { MainChara, EnemyDesign } from './character.js';
+import { Item, Floor, FloorMedia, DungeonModel, DungeonView, DungeonController } from './dungeon.js';
 class Main {
     constructor() {
         const INITIAL_COORDINATE = [0, 13, 11];
@@ -139,7 +139,7 @@ class EndScreen {
         this.bgImage = bgImage;
     }
     show(charaStatus) {
-        const { walkCount, hpMax, hp, safeCount } = charaStatus;
+        const { walkingCount, hpMax, hp, dodgedCount } = charaStatus;
         const context = this.context;
         context.fillStyle = "white";
         context.textAlign = "center";
@@ -149,9 +149,9 @@ class EndScreen {
         let y = 160;
         const texts = {
             title: "ゲームクリア",
-            walk: "歩数 : " + walkCount,
+            walk: "歩数 : " + walkingCount,
             damage: "受けたダメージ : " + (hpMax - hp),
-            item: "アイテム消費数 : " + safeCount,
+            item: "アイテム消費数 : " + dodgedCount,
         };
         context.font = 30 + "px 'ＭＳ ゴシック'";
         context.fillText(texts.title, x, y);
